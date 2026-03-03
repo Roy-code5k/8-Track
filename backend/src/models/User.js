@@ -1,0 +1,30 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const UserSchema = new mongoose.Schema(
+    {
+        name: { type: String, required: true, trim: true },
+        email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+        password: { type: String, required: true, minlength: 6 },
+        institution: { type: String, trim: true },
+        branch: { type: String, trim: true },
+        semester: { type: String, trim: true },
+        pushSubscription: { type: Object },
+        refreshToken: { type: String },
+    },
+    { timestamps: true }
+);
+
+// Hash password before saving (Mongoose v9: async hooks don't use next)
+UserSchema.pre('save', async function () {
+    if (!this.isModified('password')) return;
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password method
+UserSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
+module.exports = mongoose.model('User', UserSchema);
