@@ -7,16 +7,29 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import api from '../lib/api';
 
-// ─── Starfield Canvas (sparse floating dots, no lines) ────────────────────────
-function StarfieldCanvas() {
+// ─── Inline Styles for Placeholder ───────────────────────────────────────────
+const inputStyles = `
+    .auth-input::placeholder {
+        color: #4A4A52;
+    }
+    .auth-input:focus {
+        border-color: #F0A830 !important;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(240, 168, 48, 0.1);
+    }
+`;
+
+// ─── Constellation Canvas (amber nodes + lines with center glow) ─────────────
+function ConstellationCanvas() {
     const canvasRef = useRef(null);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         let animationId;
-        const stars = [];
-        const STAR_COUNT = 80;
+        const nodes = [];
+        const NODE_COUNT = 60;
+        const CONNECTION_DISTANCE = 150;
 
         const resize = () => {
             canvas.width = canvas.offsetWidth;
@@ -25,32 +38,64 @@ function StarfieldCanvas() {
         resize();
         window.addEventListener('resize', resize);
 
-        for (let i = 0; i < STAR_COUNT; i++) {
-            stars.push({
+        // Create nodes
+        for (let i = 0; i < NODE_COUNT; i++) {
+            nodes.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
-                r: Math.random() * 1.8 + 0.4,
-                vx: (Math.random() - 0.5) * 0.25,
-                vy: (Math.random() - 0.5) * 0.25,
-                alpha: Math.random() * 0.5 + 0.3,
+                r: Math.random() * 1.5 + 0.8,
+                vx: (Math.random() - 0.5) * 0.2,
+                vy: (Math.random() - 0.5) * 0.2,
             });
         }
 
         const draw = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            stars.forEach((s) => {
+
+            // Center glow effect
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, canvas.width * 0.5);
+            gradient.addColorStop(0, 'rgba(200, 130, 10, 0.08)'); // #C8820A with alpha
+            gradient.addColorStop(1, 'rgba(200, 130, 10, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw connection lines
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const dx = nodes[i].x - nodes[j].x;
+                    const dy = nodes[i].y - nodes[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < CONNECTION_DISTANCE) {
+                        ctx.beginPath();
+                        ctx.moveTo(nodes[i].x, nodes[i].y);
+                        ctx.lineTo(nodes[j].x, nodes[j].y);
+                        const opacity = (1 - distance / CONNECTION_DISTANCE) * 0.15;
+                        ctx.strokeStyle = `rgba(138, 90, 8, ${opacity})`; // #8A5A08
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw nodes
+            nodes.forEach((node) => {
                 ctx.beginPath();
-                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(251, 191, 36, ${s.alpha})`;
+                ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#D4920E'; // Constellation node dots
                 ctx.fill();
 
-                s.x += s.vx;
-                s.y += s.vy;
-                if (s.x < 0) s.x = canvas.width;
-                if (s.x > canvas.width) s.x = 0;
-                if (s.y < 0) s.y = canvas.height;
-                if (s.y > canvas.height) s.y = 0;
+                // Update position
+                node.x += node.vx;
+                node.y += node.vy;
+                if (node.x < 0) node.x = canvas.width;
+                if (node.x > canvas.width) node.x = 0;
+                if (node.y < 0) node.y = canvas.height;
+                if (node.y > canvas.height) node.y = 0;
             });
+
             animationId = requestAnimationFrame(draw);
         };
 
@@ -68,17 +113,17 @@ function StarfieldCanvas() {
 function LogoMark({ size = 40 }) {
     return (
         <div
-            style={{ width: size, height: size, borderRadius: '50%', background: 'hsl(43 96% 56%)' }}
+            style={{ width: size, height: size, borderRadius: '50%', background: '#2A1F08' }}
             className="flex items-center justify-center shadow-lg flex-shrink-0"
         >
             <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 14" fill="none">
                 <path
                     d="M6 7C6 4.79 7.79 3 10 3C12.21 3 13.5 4.5 14.5 7C15.5 9.5 16.79 11 19 11C21.21 11 23 9.21 23 7C23 4.79 21.21 3 19 3C17.5 3 16.5 4 15.5 5.5"
-                    stroke="hsl(240 5.9% 10%)" strokeWidth="2.2" strokeLinecap="round" fill="none"
+                    stroke="#F0A830" strokeWidth="2.2" strokeLinecap="round" fill="none"
                 />
                 <path
                     d="M18 7C18 9.21 16.21 11 14 11C11.79 11 10.5 9.5 9.5 7C8.5 4.5 7.21 3 5 3C2.79 3 1 4.79 1 7C1 9.21 2.79 11 5 11C6.5 11 7.5 10 8.5 8.5"
-                    stroke="hsl(240 5.9% 10%)" strokeWidth="2.2" strokeLinecap="round" fill="none"
+                    stroke="#F0A830" strokeWidth="2.2" strokeLinecap="round" fill="none"
                 />
             </svg>
         </div>
@@ -128,22 +173,24 @@ function AuthPage() {
     const handleTabChange = (newTab) => { setTab(newTab); reset(); loginMutation.reset(); registerMutation.reset(); };
 
     // ── Input class helper ──
-    const inputCls = 'w-full px-4 py-3 rounded-lg text-sm bg-[hsl(240_10%_11%)] border border-[hsl(240_6%_18%)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[hsl(43_96%_56%)] focus:ring-1 focus:ring-[hsl(43_96%_56%/0.4)] transition-all';
+    const inputCls = 'auth-input w-full px-4 py-3 rounded-lg text-sm border transition-all focus:outline-none';
 
     return (
-        <div className="flex min-h-screen" style={{ background: 'hsl(240 10% 6%)' }}>
+        <>
+            <style>{inputStyles}</style>
+            <div className="flex min-h-screen" style={{ background: '#141416' }}>
 
             {/* ── Left Panel ── */}
             <div className="hidden lg:flex lg:w-5/12 relative flex-col justify-between p-10 overflow-hidden"
-                style={{ background: 'hsl(240 10% 5%)' }}>
-                <StarfieldCanvas />
+                style={{ background: '#0C0C0E' }}>
+                <ConstellationCanvas />
 
                 {/* Logo */}
                 <div className="relative z-10 flex items-center gap-3">
                     <LogoMark size={42} />
                     <div>
-                        <p className="text-lg font-bold text-white leading-tight">8Track</p>
-                        <p className="text-xs text-muted-foreground">Study smarter. Never miss a class.</p>
+                        <p className="text-lg font-bold leading-tight" style={{ color: '#F0EEE8' }}>8Track</p>
+                        <p className="text-xs" style={{ color: '#5A5A62' }}>Study smarter. Never miss a class.</p>
                     </div>
                 </div>
 
@@ -155,10 +202,10 @@ function AuthPage() {
                         { icon: '⚡', label: '98% accuracy' },
                     ].map(({ icon, label }) => (
                         <span key={label}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-foreground"
-                            style={{ background: 'hsl(240 6% 12%)', border: '1px solid hsl(240 6% 18%)' }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                            style={{ background: '#1E1E22', border: '1px solid #2E2E35', color: '#8A8A95' }}
                         >
-                            {icon} {label}
+                            <span style={{ color: '#F0A830' }}>{icon}</span> {label}
                         </span>
                     ))}
                 </div>
@@ -169,8 +216,8 @@ function AuthPage() {
 
                 {/* Theme Toggle */}
                 <button onClick={toggleTheme}
-                    className="absolute top-6 right-6 p-2 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                    style={{ background: 'hsl(240 6% 12%)', border: '1px solid hsl(240 6% 18%)' }}
+                    className="absolute top-6 right-6 p-2 rounded-lg transition-colors"
+                    style={{ background: '#1E1E22', border: '1px solid #2E2E35', color: '#8A8A95' }}
                     aria-label="Toggle theme"
                 >
                     {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -179,27 +226,27 @@ function AuthPage() {
                 {/* Mobile Logo */}
                 <div className="lg:hidden flex items-center gap-2 mb-8">
                     <LogoMark size={36} />
-                    <span className="text-lg font-bold">8Track</span>
+                    <span className="text-lg font-bold" style={{ color: '#F0EEE8' }}>8Track</span>
                 </div>
 
                 <div className="w-full max-w-sm">
                     {/* Heading */}
-                    <h1 className="text-2xl font-bold text-center text-white mb-1">
+                    <h1 className="text-2xl font-bold text-center mb-1" style={{ color: '#F0EEE8' }}>
                         {tab === 'signin' ? 'Welcome back' : 'Create your account'}
                     </h1>
-                    <p className="text-sm text-center text-muted-foreground mb-7">
+                    <p className="text-sm text-center mb-7" style={{ color: '#6B6B72' }}>
                         {tab === 'signin' ? 'Log in to manage your academic track.' : 'Start tracking your attendance today.'}
                     </p>
 
                     {/* Tab Toggle */}
                     <div className="flex rounded-full p-1 mb-7"
-                        style={{ background: 'hsl(240 6% 12%)', border: '1px solid hsl(240 6% 18%)' }}>
+                        style={{ background: '#1E1E22' }}>
                         {['signin', 'register'].map((t) => (
                             <button key={t}
                                 onClick={() => handleTabChange(t)}
                                 style={tab === t
-                                    ? { background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }
-                                    : { color: 'hsl(240 5% 55%)' }
+                                    ? { background: '#F0A830', color: '#1A1208' }
+                                    : { color: '#8A8A95' }
                                 }
                                 className="flex-1 py-2 text-sm font-semibold rounded-full transition-all duration-200"
                             >
@@ -213,22 +260,48 @@ function AuthPage() {
                         {tab === 'register' && (
                             <div>
                                 <input {...register('name', { required: 'Name is required' })}
-                                    type="text" placeholder="Full name" className={inputCls} />
+                                    type="text"
+                                    placeholder="Full name"
+                                    className={inputCls}
+                                    style={{
+                                        background: '#1C1C1F',
+                                        border: '1px solid #2A2A30',
+                                        color: '#F0EEE8'
+                                    }}
+                                />
                                 {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name.message}</p>}
                             </div>
                         )}
 
                         <div>
                             <input {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })}
-                                type="email" placeholder="Email address" className={inputCls} />
+                                type="email"
+                                placeholder="Email address"
+                                className={inputCls}
+                                style={{
+                                    background: '#1C1C1F',
+                                    border: '1px solid #2A2A30',
+                                    color: '#F0EEE8'
+                                }}
+                            />
                             {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>}
                         </div>
 
                         <div className="relative">
                             <input {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Min 6 characters' } })}
-                                type={showPassword ? 'text' : 'password'} placeholder="Password" className={inputCls + ' pr-12'} />
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="Password"
+                                className={inputCls + ' pr-12'}
+                                style={{
+                                    background: '#1C1C1F',
+                                    border: '1px solid #2A2A30',
+                                    color: '#F0EEE8'
+                                }}
+                            />
                             <button type="button" onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                                style={{ color: '#4A4A52' }}
+                            >
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                             {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
@@ -236,7 +309,7 @@ function AuthPage() {
 
                         {tab === 'signin' && (
                             <div className="text-right">
-                                <button type="button" className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">
+                                <button type="button" className="text-xs transition-colors" style={{ color: '#6B6B72' }}>
                                     Forgot password?
                                 </button>
                             </div>
@@ -252,7 +325,7 @@ function AuthPage() {
                         {/* Primary CTA */}
                         <button type="submit" disabled={isLoading}
                             className="w-full py-3 rounded-lg text-sm font-bold transition-all duration-150 active:scale-[0.98] disabled:opacity-60 mt-1"
-                            style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)', boxShadow: '0 4px 24px hsl(43 96% 56% / 0.25)' }}
+                            style={{ background: '#F0A830', color: '#1A1208', boxShadow: '0 4px 24px rgba(240, 168, 48, 0.25)' }}
                         >
                             {isLoading ? 'Please wait…' : tab === 'signin' ? 'Sign In' : 'Create Account'}
                         </button>
@@ -260,30 +333,39 @@ function AuthPage() {
 
                     {/* OR divider */}
                     <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 h-px" style={{ background: 'hsl(240 6% 18%)' }} />
-                        <span className="text-xs text-muted-foreground">or</span>
-                        <div className="flex-1 h-px" style={{ background: 'hsl(240 6% 18%)' }} />
+                        <div className="flex-1 h-px" style={{ background: '#2A2A30' }} />
+                        <span className="text-xs" style={{ color: '#3A3A42' }}>OR</span>
+                        <div className="flex-1 h-px" style={{ background: '#2A2A30' }} />
                     </div>
 
                     {/* Continue with Google */}
                     <button type="button"
-                        className="w-full flex items-center justify-center gap-3 py-3 rounded-lg text-sm font-medium text-foreground transition-all hover:opacity-80"
-                        style={{ background: 'hsl(240 6% 12%)', border: '1px solid hsl(240 6% 20%)' }}
+                        className="w-full flex items-center justify-center gap-3 py-3 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                        style={{ background: '#1C1C1F', border: '1px solid #2A2A2E', color: '#F0EEE8' }}
                     >
                         <GoogleIcon />
                         Continue with Google
                     </button>
 
                     {/* Terms */}
-                    <p className="text-xs text-muted-foreground text-center mt-6">
+                    <p className="text-xs text-center mt-6" style={{ color: '#8A8A95' }}>
                         By continuing, you agree to our{' '}
-                        <span className="text-amber-400 cursor-pointer hover:underline">Terms</span>
+                        <span className="cursor-pointer transition-all" style={{ color: '#8A8A95', textDecoration: 'none' }}
+                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}>
+                            Terms
+                        </span>
                         {' '}and{' '}
-                        <span className="text-amber-400 cursor-pointer hover:underline">Privacy Policy</span>.
+                        <span className="cursor-pointer transition-all" style={{ color: '#8A8A95', textDecoration: 'none' }}
+                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}>
+                            Privacy Policy
+                        </span>.
                     </p>
                 </div>
             </div>
         </div>
+        </>
     );
 }
 
