@@ -1,6 +1,6 @@
 # 8Track ♾️ 
 
-8Track is a unified academic management Progressive Web App (PWA) for college students. It provides predictive attendance tracking, assignment management, offline support, and performance analytics to organize your academic journey safely and securely.
+8Track is unified academic management Progressive Web App (PWA) for college students. It provides predictive attendance tracking, assignment management, offline support, and performance analytics to organize your academic journey safely and securely.
 
 ## 🚀 Tech Stack
 
