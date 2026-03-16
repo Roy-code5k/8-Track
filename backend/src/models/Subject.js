@@ -6,6 +6,7 @@ const SubjectSchema = new mongoose.Schema(
         name: { type: String, required: true, trim: true },
         totalClasses: { type: Number, default: 0, min: 0 },
         attendedClasses: { type: Number, default: 0, min: 0 },
+        totalExpectedClasses: { type: Number, default: 0, min: 0 },
         percentage: { type: Number, default: 0 },
         status: {
             type: String,

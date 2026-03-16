@@ -40,19 +40,21 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "8Track API is running 🚀" });
 });
 
-// Connect to MongoDB and start server
+// Start the server immediately so it doesn't block incoming requests
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+
+// Connect to MongoDB in the background
 mongoose
 .connect(MONGO_URI, {
     serverSelectionTimeoutMS: 60000,
 })
 .then(() => {
     console.log('✅ Connected to MongoDB Atlas');
-    app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
-    });
 })
 .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
+    // Don't exit process so the API can still report health checks
 });
 

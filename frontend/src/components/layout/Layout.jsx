@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import DashboardPage from '../../pages/DashboardPage';
+import SubjectsPage from '../../pages/SubjectsPage';
 
 // Stub pages (filled in later phases)
 const ComingSoon = ({ name, phase }) => (
@@ -42,7 +43,7 @@ export default function Layout() {
                         <Route path="exams" element={<ComingSoon name="Exams" phase="5" />} />
                         <Route path="progress" element={<ComingSoon name="My Progress" phase="6" />} />
                         <Route path="focus" element={<ComingSoon name="Focus Mode" phase="7" />} />
-                        <Route path="subjects" element={<ComingSoon name="Subjects" phase="2" />} />
+                        <Route path="subjects" element={<SubjectsPage />} />
                     </Routes>
                 </main>
             </div>

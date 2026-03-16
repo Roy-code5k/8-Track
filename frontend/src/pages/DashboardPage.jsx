@@ -47,7 +47,7 @@ function StatCard({ label, value, sub, accent, extra }) {
                 <span className="text-3xl font-bold" style={{ color: accent || 'hsl(43 96% 56%)' }}>{value}</span>
                 {extra}
             </div>
-            {sub && <p className="text-xs" style={{ color: 'hsl(240 5% 50%)' }}>{sub}</p>}
+            {sub && <div className="text-xs" style={{ color: 'hsl(240 5% 50%)' }}>{sub}</div>}
         </div>
     );
 }
@@ -104,8 +104,8 @@ function TodaysClasses() {
 
 // ─── Subject Attendance Row ───────────────────────────────────────────────────
 function SubjectRow({ subject, color, onMark }) {
-    const pct = subject.attendancePercentage ?? 0;
-    const status = subject.attendanceStatus || 'danger';
+    const pct = subject.percentage ?? 0;
+    const status = subject.status || 'danger';
     const st = STATUS_STYLE[status] || STATUS_STYLE.danger;
 
     return (
@@ -180,9 +180,9 @@ export default function DashboardPage() {
 
     // Derived stats
     const avgPct = subjects.length
-        ? Math.round(subjects.reduce((s, sub) => s + (sub.attendancePercentage || 0), 0) / subjects.length)
+        ? Math.round(subjects.reduce((s, sub) => s + (sub.percentage || 0), 0) / subjects.length)
         : 0;
-    const atRisk = subjects.filter(s => s.attendanceStatus === 'warning' || s.attendanceStatus === 'danger').length;
+    const atRisk = subjects.filter(s => s.status === 'warning' || s.status === 'danger').length;
 
     return (
         <div className="space-y-5">

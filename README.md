@@ -100,11 +100,11 @@ npm run dev -- --port 5173
 The frontend will be available at `http://localhost:5173`. The backend will run on `http://localhost:5000`.
 
 ## 🔒 Authentication Flow
-This app uses a highly secure authentication pattern to prevent XSS and CSRF attacks:
-1. When a user logs in, the backend generates a JWT and attaches it to the HTTP response as an `httpOnly`, `SameSite=Strict` cookie.
-2. The frontend **never** touches or stores the JWT in `localStorage` or memory.
-3. Every protected API request from Axios automatically includes `withCredentials: true` to pass the cookie to the backend.
-4. The `authMiddleware` on the backend validates the token from the cookie before allowing access to private routes.
+This app uses a highly secure Access Token + Refresh Token architecture:
+1. The backend issues a short-lived **Access Token** (in JSON) and a long-lived **Refresh Token** (in an `httpOnly`, `SameSite=Strict` cookie).
+2. The frontend stores the Access Token exclusively in memory (via Zustand, configured not to persist it). This heavily mitigates XSS risks.
+3. Axios interceptors automatically attach the Access Token as a Bearer token to API requests. 
+4. If the Access Token expires, Axios silently calls `/api/auth/refresh` sending the Secure cookie to procure a new set of tokens without interrupting the user.
 
 ## 🤝 Next Steps for Development (Current Focus)
 The project is being built feature-by-feature. Currently finished: Phase 1 (Scaffolding and Auth) and Phase 2 Frontend (Dashboard UI).

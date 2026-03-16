@@ -101,7 +101,7 @@ const login = async (req, res) => {
                 semester: user.semester,
             },
         });
-    } catch {
+    } catch (err) {
         return res.status(500).json({ message: 'Server error during login' });
     }
 };
