@@ -9,6 +9,8 @@ const TaskSchema = new mongoose.Schema(
             enum: ['low', 'medium', 'high'],
             default: 'medium',
         },
+        subject: { type: String, trim: true },
+        estimatedMinutes: { type: Number, default: 25 },
         dueDate: { type: Date },
         completed: { type: Boolean, default: false },
     },

@@ -3,6 +3,8 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import DashboardPage from '../../pages/DashboardPage';
 import SubjectsPage from '../../pages/SubjectsPage';
+import ExamsPage from '../../pages/ExamsPage';
+import FocusPage from '../../pages/FocusPage';
 
 // Stub pages (filled in later phases)
 const ComingSoon = ({ name, phase }) => (
@@ -40,9 +42,9 @@ export default function Layout() {
                         <Route path="dashboard" element={<DashboardPage />} />
                         <Route path="attendance" element={<ComingSoon name="Attendance" phase="3" />} />
                         <Route path="assignments" element={<ComingSoon name="Assignments" phase="4" />} />
-                        <Route path="exams" element={<ComingSoon name="Exams" phase="5" />} />
+                        <Route path="exams" element={<ExamsPage />} />
                         <Route path="progress" element={<ComingSoon name="My Progress" phase="6" />} />
-                        <Route path="focus" element={<ComingSoon name="Focus Mode" phase="7" />} />
+                        <Route path="focus" element={<FocusPage />} />
                         <Route path="subjects" element={<SubjectsPage />} />
                     </Routes>
                 </main>

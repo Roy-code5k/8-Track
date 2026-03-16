@@ -10,10 +10,10 @@ const getTasks = async (req, res) => {
 };
 
 const createTask = async (req, res) => {
-    const { title, priority, dueDate } = req.body;
+    const { title, priority, dueDate, subject, estimatedMinutes } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
     try {
-        const task = await Task.create({ userId: req.user.id, title, priority, dueDate });
+        const task = await Task.create({ userId: req.user.id, title, priority, dueDate, subject, estimatedMinutes });
         res.status(201).json({ task });
     } catch {
         res.status(500).json({ message: 'Failed to create task' });
