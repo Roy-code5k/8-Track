@@ -5,13 +5,14 @@ import DashboardPage from '../../pages/DashboardPage';
 import SubjectsPage from '../../pages/SubjectsPage';
 import ExamsPage from '../../pages/ExamsPage';
 import FocusPage from '../../pages/FocusPage';
+import { Plus } from 'lucide-react';
 
 // Stub pages (filled in later phases)
 const ComingSoon = ({ name, phase }) => (
     <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center space-y-2">
             <p className="text-2xl font-bold text-white">{name}</p>
-            <p style={{ color: 'hsl(240 5% 50%)' }}>Coming in Phase {phase} 🚀</p>
+            <p className="text-[15px] font-medium" style={{ color: 'var(--text-muted)' }}>Coming in Phase {phase} 🚀</p>
         </div>
     </div>
 );
@@ -31,13 +32,12 @@ export default function Layout() {
     const title = PAGE_TITLES[pathname] || 'Dashboard';
 
     return (
-        <div className="flex min-h-screen" style={{ background: 'hsl(240 10% 6%)' }}>
+        <div className="flex min-h-screen" style={{ background: 'var(--main-bg)' }}>
             <Sidebar />
             <div className="flex flex-col flex-1 min-w-0">
                 <TopBar title={title} />
-                <main className="flex-1 overflow-auto p-6">
+                <main className="flex-1 overflow-auto px-10 py-8">
                     <Routes>
-                        {/* Redirect bare / to /dashboard */}
                         <Route index element={<Navigate to="/dashboard" replace />} />
                         <Route path="dashboard" element={<DashboardPage />} />
                         <Route path="attendance" element={<ComingSoon name="Attendance" phase="3" />} />
@@ -50,14 +50,15 @@ export default function Layout() {
                 </main>
             </div>
 
-            {/* Floating Action Button */}
-            <button
-                className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center text-2xl font-light shadow-2xl z-50 transition-transform hover:scale-110 active:scale-95"
-                style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}
+            {/* Global Floating Action Button */}
+            <button className="fixed bottom-10 right-10 w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(232,168,56,0.3)] z-50 transition-all hover:scale-110 active:scale-95 group overflow-hidden"
+                style={{ background: 'var(--primary-accent)' }}
                 title="Quick Action"
             >
-                +
+                <Plus className="w-8 h-8 text-[#0F0F13] transition-transform group-hover:rotate-90" />
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
             </button>
         </div>
     );
 }
+

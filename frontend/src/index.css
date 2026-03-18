@@ -1,67 +1,51 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 43 96% 56%;
-    --radius: 0.5rem;
-    /* Status colors */
-    --safe: 142 76% 36%;
-    --warning: 38 92% 50%;
-    --danger: 0 84% 60%;
-  }
-
-  .dark {
-    --background: 240 10% 6%;
-    --foreground: 0 0% 95%;
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 95%;
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 6% 12%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 240 6% 12%;
-    --muted-foreground: 240 5% 55%;
-    --accent: 240 6% 14%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 15%;
-    --input: 240 6% 15%;
-    --ring: 43 96% 56%;
+    --primary-accent: #E8A838;
+    --secondary-accent: #3ABFBF;
+    --main-bg: #141418;
+    --sidebar-bg: #0F0F13;
+    --card-bg: #1E1E24;
+    --active-highlight: #26262F;
+    
+    /* Status Colors */
+    --status-danger: #E85C5C;
+    --status-warning: #E8A838;
+    --status-safe: #4CAF7D;
+    
+    /* Typography */
+    --text-primary: #FFFFFF;
+    --text-muted: #888888;
+    --text-warm: #F5F5F5;
+    
+    /* System Overrides for Shadcn/Existing Components if any */
+    --background: 240 10% 8%; /* #141418-ish */
+    --foreground: 0 0% 100%;
+    --card: 240 10% 13%; /* #1E1E24-ish */
+    --card-foreground: 0 0% 100%;
+    --primary: 38 80% 56%; /* #E8A838-ish */
+    --primary-foreground: 240 10% 5%;
+    --border: 240 10% 15%;
+    --radius: 12px;
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--active-highlight);
     box-sizing: border-box;
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--main-bg);
+    color: var(--text-primary);
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
   html {
     scroll-behavior: smooth;
@@ -70,11 +54,20 @@
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: hsl(var(--background)); }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+::-webkit-scrollbar-track { background: var(--main-bg); }
+::-webkit-scrollbar-thumb { background: var(--active-highlight); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Attendance status badge colors */
-.status-safe    { color: hsl(var(--safe)); background: hsl(var(--safe) / 0.12); }
-.status-warning { color: hsl(var(--warning)); background: hsl(var(--warning) / 0.12); }
-.status-danger  { color: hsl(var(--danger)); background: hsl(var(--danger) / 0.12); }
+/* Dot Matrix Pattern Utility */
+.dot-matrix {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Glassmorphism / Elevated styles */
+.glass-panel {
+  background: rgba(30, 30, 36, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+

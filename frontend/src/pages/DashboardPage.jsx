@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import api from '../lib/api';
 import { format } from 'date-fns';
+import { Plus, Calendar, ArrowRight } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getGreeting() {
@@ -12,12 +13,12 @@ function getGreeting() {
 }
 
 const STATUS_STYLE = {
-    safe: { label: 'SAFE', color: '#3b82f6', bg: '#3b82f620', bar: '#3b82f6' },
-    warning: { label: 'WARNING', color: '#f97316', bg: '#f9731620', bar: '#f97316' },
-    danger: { label: 'DANGER', color: '#ef4444', bg: '#ef444420', bar: '#ef4444' },
+    safe: { label: 'SAFE', color: 'var(--status-safe)', bg: 'rgba(76, 175, 125, 0.1)', bar: 'var(--status-safe)' },
+    warning: { label: 'WARNING', color: 'var(--status-warning)', bg: 'rgba(232, 168, 56, 0.1)', bar: 'var(--status-warning)' },
+    danger: { label: 'DANGER', color: 'var(--status-danger)', bg: 'rgba(232, 92, 92, 0.1)', bar: 'var(--status-danger)' },
 };
 
-const SUBJECT_COLORS = ['#3b82f6', '#f97316', '#ef4444', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
+const SUBJECT_COLORS = ['#3ABFBF', '#E8A838', '#E85C5C', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
 
 // ─── Streak Heatmap (last 4 weeks) ───────────────────────────────────────────
 function StreakHeatmap() {
@@ -25,12 +26,12 @@ function StreakHeatmap() {
         const r = Math.random();
         return r > 0.55 ? (r > 0.8 ? 'high' : 'med') : r > 0.35 ? 'low' : 'none';
     });
-    const colorMap = { none: 'hsl(240 6% 15%)', low: '#92400e55', med: '#b45309', high: '#f59e0b' };
+    const colorMap = { none: 'rgba(255, 255, 255, 0.05)', low: 'rgba(232, 168, 56, 0.2)', med: 'rgba(232, 168, 56, 0.5)', high: 'var(--primary-accent)' };
 
     return (
-        <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
             {cells.map((c, i) => (
-                <div key={i} className="w-5 h-5 rounded-sm"
+                <div key={i} className="w-4 h-4 rounded-[4px]"
                     style={{ background: colorMap[c] }} />
             ))}
         </div>
@@ -38,21 +39,31 @@ function StreakHeatmap() {
 }
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, accent, extra }) {
+function StatCard({ label, value, sub, accent, extra, progress }) {
     return (
-        <div className="rounded-2xl p-5 flex flex-col gap-2"
-            style={{ background: 'hsl(240 10% 9%)', border: '1px solid hsl(240 6% 15%)' }}>
-            <p className="text-sm font-medium" style={{ color: 'hsl(240 5% 55%)' }}>{label}</p>
-            <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold" style={{ color: accent || 'hsl(43 96% 56%)' }}>{value}</span>
-                {extra}
+        <div className="rounded-2xl p-6 flex flex-col justify-between h-40 transition-all hover:bg-[var(--active-highlight)] border border-[var(--active-highlight)]"
+            style={{ background: 'var(--card-bg)' }}>
+            <div>
+                <p className="text-sm font-semibold tracking-tight text-[var(--text-muted)]">{label}</p>
+                <div className="flex items-baseline gap-3 mt-4">
+                    <span className="text-4xl font-black font-mono text-white">{value}</span>
+                    {extra}
+                </div>
             </div>
-            {sub && <div className="text-xs" style={{ color: 'hsl(240 5% 50%)' }}>{sub}</div>}
+            <div>
+                {progress !== undefined && (
+                    <div className="w-full h-1.5 rounded-full bg-[var(--active-highlight)] overflow-hidden mb-2">
+                        <div className="h-full rounded-full transition-all duration-500" 
+                            style={{ width: `${progress}%`, background: accent || 'var(--primary-accent)' }} />
+                    </div>
+                )}
+                {sub && <div className="text-[13px] font-medium text-[var(--text-muted)]">{sub}</div>}
+            </div>
         </div>
     );
 }
 
-// ─── Today's Classes (static for now, Phase 6 will be dynamic) ───────────────
+// ─── Today's Classes ────────────────────────────────────────────────────────
 const TODAYS_CLASSES = [
     { time: '09:00', end: '10:30', name: 'Applied Physics II', room: 'Lecture Hall B2', prof: 'Prof. Sharma', now: true },
     { time: '11:00', end: '12:30', name: 'Discrete Math', room: 'Seminar Room 1', prof: 'Dr. Gupta', now: false },
@@ -61,41 +72,42 @@ const TODAYS_CLASSES = [
 
 function TodaysClasses() {
     return (
-        <div className="rounded-2xl p-5"
-            style={{ background: 'hsl(240 10% 9%)', border: '1px solid hsl(240 6% 15%)' }}>
-            <div className="flex items-center justify-between mb-5">
-                <h2 className="font-bold text-white">Today's Classes</h2>
-                <button className="text-xs p-1 rounded" style={{ color: 'hsl(43 96% 56%)' }}>📅</button>
+        <div className="rounded-3xl p-6 border border-[var(--active-highlight)]"
+            style={{ background: 'var(--card-bg)' }}>
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-lg font-bold text-white tracking-tight">Today's Classes</h2>
+                <button className="p-2 rounded-xl text-[var(--primary-accent)] hover:bg-[rgba(232,168,56,0.1)] transition-colors">
+                    <Calendar className="w-5 h-5" />
+                </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {TODAYS_CLASSES.map((cls) => (
-                    <div key={cls.time} className="flex gap-3">
+                    <div key={cls.time} className="flex gap-4 group">
                         {/* Time */}
-                        <div className="text-right flex-shrink-0 w-12">
-                            <p className="text-xs font-semibold text-white">{cls.time}</p>
-                            <p className="text-xs" style={{ color: 'hsl(240 5% 45%)' }}>{cls.end}</p>
+                        <div className="text-right flex-shrink-0 w-14 pt-1">
+                            <p className="text-sm font-bold text-white font-mono">{cls.time}</p>
+                            <p className="text-[11px] font-medium text-[var(--text-muted)]">{cls.end}</p>
                         </div>
                         {/* Left accent bar */}
-                        <div className="w-1 rounded-full flex-shrink-0"
-                            style={{ background: cls.now ? 'hsl(43 96% 56%)' : 'hsl(240 6% 20%)' }} />
+                        <div className="w-[3px] rounded-full flex-shrink-0"
+                            style={{ background: cls.now ? 'var(--primary-accent)' : 'var(--active-highlight)' }} />
                         {/* Info */}
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold text-white">{cls.name}</p>
+                        <div className={`flex-1 p-4 rounded-2xl transition-all ${cls.now ? 'bg-[var(--active-highlight)] outline outline-1 outline-[rgba(232,168,56,0.2)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}>
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-bold text-white tracking-tight">{cls.name}</p>
                                 {cls.now && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-                                        style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}>NOW</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest"
+                                        style={{ background: 'var(--primary-accent)', color: 'var(--sidebar-bg)' }}>NOW</span>
                                 )}
                             </div>
-                            <p className="text-xs mt-0.5" style={{ color: 'hsl(240 5% 50%)' }}>
+                            <p className="text-[12px] font-medium mt-1 text-[var(--text-muted)]">
                                 {cls.room} • {cls.prof}
                             </p>
                         </div>
                     </div>
                 ))}
             </div>
-            <button className="w-full mt-5 text-xs py-2 rounded-lg transition-colors hover:opacity-80"
-                style={{ color: 'hsl(43 96% 56%)', border: '1px solid hsl(240 6% 18%)' }}>
+            <button className="w-full mt-10 text-xs font-bold py-3 rounded-xl transition-all hover:bg-[var(--active-highlight)] border border-[var(--active-highlight)] text-[var(--text-muted)]">
                 View full schedule
             </button>
         </div>
@@ -109,47 +121,43 @@ function SubjectRow({ subject, color, onMark }) {
     const st = STATUS_STYLE[status] || STATUS_STYLE.danger;
 
     return (
-        <tr style={{ borderBottom: '1px solid hsl(240 6% 13%)' }}>
-            {/* Subject name */}
-            <td className="py-3 pr-4">
-                <div className="flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-                    <span className="text-sm font-medium text-white">{subject.name}</span>
+        <tr className="border-b border-[var(--active-highlight)] last:border-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors group">
+            <td className="py-5 pr-4 pl-2">
+                <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+                    <span className="text-[14px] font-bold text-white tracking-tight">{subject.name}</span>
                 </div>
             </td>
-            {/* Progress bar */}
-            <td className="py-3 pr-6" style={{ minWidth: 140 }}>
-                <div className="flex items-center gap-3">
-                    <div className="flex-1 h-2 rounded-full" style={{ background: 'hsl(240 6% 18%)' }}>
-                        <div className="h-full rounded-full transition-all"
+            <td className="py-5 pr-8" style={{ minWidth: 180 }}>
+                <div className="flex items-center gap-4">
+                    <div className="flex-1 h-2 rounded-full bg-[var(--active-highlight)] overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700"
                             style={{ width: `${Math.min(pct, 100)}%`, background: st.bar }} />
                     </div>
-                    <span className="text-sm font-semibold text-white w-10 text-right">{Math.round(pct)}%</span>
+                    <span className="text-[14px] font-bold text-white font-mono w-10 text-right">{Math.round(pct)}%</span>
                 </div>
             </td>
-            {/* Status badge */}
-            <td className="py-3 pr-6">
-                <span className="px-2.5 py-1 rounded text-xs font-bold"
-                    style={{ color: st.color, background: st.bg }}>
+            <td className="py-5 pr-8">
+                <span className="px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase shadow-sm"
+                    style={{ color: st.color, background: st.bg, border: `1px solid ${st.color}20` }}>
                     {st.label}
                 </span>
             </td>
-            {/* Action buttons */}
-            <td className="py-3">
+            <td className="py-5 pr-2">
                 <div className="flex gap-2">
                     <button
                         onClick={() => onMark(subject._id, 'present')}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 active:scale-95"
-                        style={{ background: 'hsl(240 6% 18%)', color: 'hsl(142 76% 55%)' }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all bg-[var(--active-highlight)] border border-[rgba(255,255,255,0.05)] hover:border-[var(--status-safe)] hover:text-[var(--status-safe)]"
                     >
-                        + Present
+                        <Plus className="w-3 h-3" />
+                        Present
                     </button>
                     <button
                         onClick={() => onMark(subject._id, 'absent')}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 active:scale-95"
-                        style={{ background: 'hsl(240 6% 18%)', color: 'hsl(0 72% 65%)' }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all bg-[var(--active-highlight)] border border-[rgba(255,255,255,0.05)] hover:border-[var(--status-danger)] hover:text-[var(--status-danger)]"
                     >
-                        + Absent
+                        <Plus className="w-3 h-3" />
+                        Absent
                     </button>
                 </div>
             </td>
@@ -160,129 +168,122 @@ function SubjectRow({ subject, color, onMark }) {
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
     const user = useAuthStore((s) => s.user);
-    const firstName = user?.name?.split(' ')[0] || 'Student';
+    const firstName = user?.name?.split(' ')[0] || 'Ayush';
     const today = format(new Date(), 'EEEE, MMMM d');
     const queryClient = useQueryClient();
 
-    // Fetch subjects
     const { data: subjects = [], isLoading } = useQuery({
         queryKey: ['subjects'],
         queryFn: () => api.get('/subjects').then(r => r.data.subjects || r.data),
         retry: 1,
     });
 
-    // Mark attendance mutation
     const markMutation = useMutation({
         mutationFn: ({ subjectId, status }) =>
             api.post('/attendance/mark', { subjectId, status, date: new Date().toISOString() }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subjects'] }),
     });
 
-    // Derived stats
     const avgPct = subjects.length
         ? Math.round(subjects.reduce((s, sub) => s + (sub.percentage || 0), 0) / subjects.length)
         : 0;
     const atRisk = subjects.filter(s => s.status === 'warning' || s.status === 'danger').length;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-8 pb-10 relative">
             {/* ── Top Row: Greeting + Streak ── */}
-            <div className="flex items-start justify-between gap-5">
-                {/* Greeting */}
+            <div className="flex items-start justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">
+                    <h2 className="text-4xl font-black text-white tracking-tighter leading-tight">
                         {getGreeting()}, {firstName} 👋
                     </h2>
-                    <p className="text-sm mt-1" style={{ color: 'hsl(240 5% 50%)' }}>{today}</p>
+                    <p className="text-[15px] font-medium mt-2 text-[var(--text-muted)]">{today}</p>
                 </div>
 
-                {/* Streak card */}
-                <div className="rounded-2xl p-5 flex items-center gap-6 flex-shrink-0"
-                    style={{ background: 'hsl(240 10% 9%)', border: '1px solid hsl(240 6% 15%)' }}>
-                    <div>
-                        <p className="text-xs font-semibold mb-2 tracking-widest" style={{ color: 'hsl(240 5% 50%)' }}>CURRENT STREAK</p>
-                        <div className="flex items-center gap-2">
-                            <span className="text-2xl">🔥</span>
-                            <span className="text-3xl font-black text-white">12</span>
-                            <span className="text-base font-medium" style={{ color: 'hsl(240 5% 55%)' }}>days</span>
+                {/* Streak Card */}
+                <div className="rounded-3xl p-6 flex items-center gap-8 flex-shrink-0 border border-[var(--active-highlight)]"
+                    style={{ background: 'var(--card-bg)' }}>
+                    <div className="flex flex-col items-center">
+                        <p className="text-[10px] font-black mb-3 tracking-[0.2em] text-[var(--text-muted)] uppercase">Current Streak</p>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl filter drop-shadow-[0_0_8px_rgba(232,168,56,0.5)]">🔥</span>
+                            <span className="text-4xl font-black text-white font-mono">12</span>
+                            <span className="text-sm font-bold text-[var(--text-muted)]">days</span>
                         </div>
                     </div>
                     <div>
                         <StreakHeatmap />
-                        <div className="flex justify-between mt-1.5">
-                            <p className="text-xs" style={{ color: 'hsl(240 5% 45%)' }}>ACTIVITY</p>
-                            <p className="text-xs" style={{ color: 'hsl(240 5% 45%)' }}>Last 4 Weeks</p>
+                        <div className="flex justify-between mt-3 px-0.5">
+                            <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Activity</p>
+                            <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Last 4 Weeks</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* ── Stat Cards ── */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 gap-6">
                 <StatCard
                     label="Overall Attendance"
                     value={subjects.length ? `${avgPct}%` : '—'}
-                    accent="hsl(43 96% 56%)"
-                    sub={
-                        <div className="w-full h-1.5 rounded-full mt-1" style={{ background: 'hsl(240 6% 18%)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${avgPct}%`, background: 'hsl(43 96% 56%)' }} />
-                        </div>
-                    }
+                    accent="var(--primary-accent)"
+                    progress={avgPct}
                 />
                 <StatCard
                     label="At Risk Subjects"
                     value={atRisk}
-                    accent="hsl(43 96% 56%)"
+                    accent="var(--status-danger)"
                     extra={atRisk > 0 && (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                            style={{ background: 'hsl(43 96% 56% / 0.15)', color: 'hsl(43 96% 56%)' }}>
+                        <span className="text-[11px] px-3 py-1 rounded-full font-black tracking-tight"
+                            style={{ background: 'rgba(232, 92, 92, 0.15)', color: 'var(--status-danger)', border: '1px solid rgba(232, 92, 92, 0.3)' }}>
                             {atRisk} {atRisk === 1 ? 'subject' : 'subjects'}
                         </span>
                     )}
+                    sub="Subjects below threshold"
                 />
                 <StatCard
                     label="Due Today"
                     value="3"
-                    accent="hsl(43 96% 56%)"
+                    accent="var(--primary-accent)"
                     sub="Tasks & Assignments"
                 />
                 <StatCard
                     label="Next Exam"
                     value="2d 14h"
-                    accent="hsl(43 96% 56%)"
+                    accent="var(--secondary-accent)"
                     sub="Applied Physics II"
                 />
             </div>
 
             {/* ── Main Grid: Attendance Table + Today's Classes ── */}
-            <div className="grid grid-cols-[1fr_280px] gap-5 items-start">
-                {/* Subject Attendance Table */}
-                <div className="rounded-2xl p-5"
-                    style={{ background: 'hsl(240 10% 9%)', border: '1px solid hsl(240 6% 15%)' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-white">Subject Attendance</h2>
-                        <button className="text-xs hover:underline" style={{ color: 'hsl(43 96% 56%)' }}>View All</button>
+            <div className="grid grid-cols-[1fr_360px] gap-8 items-start">
+                <div className="rounded-3xl p-8 border border-[var(--active-highlight)]"
+                    style={{ background: 'var(--card-bg)' }}>
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-lg font-bold text-white tracking-tight">Subject Attendance</h2>
+                        <button className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-[var(--primary-accent)] hover:underline">
+                            View All <ArrowRight className="w-3 h-3" />
+                        </button>
                     </div>
 
                     {isLoading ? (
-                        <div className="py-10 text-center text-sm" style={{ color: 'hsl(240 5% 50%)' }}>Loading subjects…</div>
+                        <div className="py-20 text-center text-sm font-medium text-[var(--text-muted)] animate-pulse">Loading subjects...</div>
                     ) : subjects.length === 0 ? (
-                        <div className="py-10 text-center">
-                            <p className="text-sm font-medium text-white mb-1">No subjects yet</p>
-                            <p className="text-xs" style={{ color: 'hsl(240 5% 50%)' }}>Add subjects from the Subjects page to start tracking attendance.</p>
+                        <div className="py-20 text-center bg-[rgba(255,255,255,0.01)] rounded-2xl border border-dashed border-[var(--active-highlight)]">
+                            <p className="text-sm font-bold text-white mb-2 tracking-tight">No subjects found</p>
+                            <p className="text-xs text-[var(--text-muted)] font-medium">Add subjects to start tracking attendance.</p>
                         </div>
                     ) : (
                         <table className="w-full">
                             <thead>
-                                <tr style={{ borderBottom: '1px solid hsl(240 6% 18%)' }}>
-                                    {['SUBJECT', 'PROGRESS', 'STATUS', 'ACTIONS'].map(h => (
-                                        <th key={h} className="pb-2 text-left text-xs font-semibold tracking-widest"
-                                            style={{ color: 'hsl(240 5% 45%)' }}>{h}</th>
+                                <tr className="border-b border-[var(--active-highlight)]">
+                                    {['Subject', 'Progress', 'Status', 'Actions'].map(h => (
+                                        <th key={h} className="pb-4 text-left text-[11px] font-black tracking-[0.2em] text-[var(--text-muted)] uppercase">{h}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                {subjects.slice(0, 6).map((sub, i) => (
+                                {subjects.slice(0, 5).map((sub, i) => (
                                     <SubjectRow
                                         key={sub._id}
                                         subject={sub}
@@ -295,9 +296,10 @@ export default function DashboardPage() {
                     )}
                 </div>
 
-                {/* Today's Classes */}
                 <TodaysClasses />
             </div>
         </div>
     );
 }
+
+

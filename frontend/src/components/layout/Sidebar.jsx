@@ -22,95 +22,97 @@ export default function Sidebar() {
     const logout = useAuthStore((s) => s.logout);
     const navigate = useNavigate();
 
-    // Logout — calls backend to clear the HttpOnly refresh cookie
     const logoutMutation = useMutation({
         mutationFn: () => api.post('/auth/logout'),
         onSettled: () => { logout(); navigate('/auth'); },
     });
 
-    const initials = user?.name
-        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-        : 'U';
-
     return (
-        <aside className="flex flex-col justify-between w-[168px] min-h-screen py-5 px-3 flex-shrink-0"
-            style={{ background: 'hsl(240 10% 7%)', borderRight: '1px solid hsl(240 6% 13%)' }}>
+        <aside className="flex flex-col justify-between w-[200px] min-h-screen py-6 px-4 flex-shrink-0 dot-matrix"
+            style={{ background: 'var(--sidebar-bg)', borderRight: '1px solid var(--active-highlight)' }}>
 
-            {/* Logo */}
             <div>
-                <div className="flex items-center gap-2.5 px-2 mb-7">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0"
-                        style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}>
+                {/* Logo */}
+                <div className="flex items-center gap-3 px-2 mb-8">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl flex-shrink-0"
+                        style={{ background: 'var(--primary-accent)', color: 'var(--sidebar-bg)' }}>
                         8
                     </div>
-                    <span className="font-bold text-base text-white">8Track</span>
+                    <span className="font-bold text-xl text-white tracking-tight">8Track</span>
                 </div>
 
-                {/* User profile + Logout button */}
-                <div className="flex items-center gap-2 px-2 mb-6">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                        style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}>
-                        {initials}
+                {/* User profile */}
+                <div className="flex items-center gap-3 px-2 mb-8">
+                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2 border-[var(--active-highlight)]">
+                        <img 
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'Ayush'}`} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover"
+                        />
                     </div>
-                    <div className="overflow-hidden flex-1">
-                        <p className="text-sm font-semibold text-white truncate">{user?.name || 'Student'}</p>
-                        <p className="text-xs truncate" style={{ color: 'hsl(240 5% 50%)' }}>
-                            {user?.semester || 'Semester 1'}
+                    <div className="overflow-hidden">
+                        <p className="text-[14px] font-bold text-[var(--text-warm)] truncate leading-tight">{user?.name || 'Ayush Patel'}</p>
+                        <p className="text-[11px] font-medium text-[var(--text-muted)] truncate mt-0.5">
+                            {user?.section || 'Section 1A'}
                         </p>
                     </div>
-                    {/* Logout icon button */}
-                    <button
-                        onClick={() => logoutMutation.mutate()}
-                        disabled={logoutMutation.isPending}
-                        title="Log out"
-                        className="p-1.5 rounded-lg transition-colors hover:text-red-400 flex-shrink-0"
-                        style={{ color: 'hsl(240 5% 50%)' }}
-                    >
-                        <LogOut className="w-3.5 h-3.5" />
-                    </button>
                 </div>
 
-                {/* Nav */}
-                <nav className="space-y-0.5">
+                {/* Navigation */}
+                <nav className="space-y-1">
                     {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
                         <NavLink key={to} to={to}
                             className={({ isActive }) =>
-                                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'text-white' : 'hover:text-white'
+                                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group ${
+                                    isActive 
+                                    ? 'text-[var(--primary-accent)]' 
+                                    : 'text-[var(--text-muted)] hover:text-white'
                                 }`
                             }
                             style={({ isActive }) => isActive
-                                ? { background: 'hsl(43 96% 56% / 0.15)', color: 'hsl(43 96% 56%)' }
-                                : { color: 'hsl(240 5% 50%)' }
+                                ? { 
+                                    background: 'var(--active-highlight)', 
+                                    border: '1px solid var(--primary-accent)' 
+                                }
+                                : {}
                             }
                         >
-                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${label === 'Dashboard' ? 'text-inherit' : ''}`} />
                             {label}
                         </NavLink>
                     ))}
                 </nav>
             </div>
 
-            {/* Bottom — Quick Mark (attendance shortcut) + Synced status */}
-            <div className="space-y-3">
+            {/* Bottom Actions */}
+            <div className="space-y-4">
                 <button
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98]"
-                    style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}
-                    title="Quick attendance mark"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98] border border-[var(--primary-accent)]"
+                    style={{ color: 'var(--primary-accent)' }}
                 >
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-4 h-4 fill-[var(--primary-accent)]" />
                     Quick Mark
                 </button>
 
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-1.5 text-xs" style={{ color: 'hsl(142 76% 44%)' }}>
-                        <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[var(--status-safe)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-safe)] shadow-[0_0_8px_var(--status-safe)]" />
                         Synced
                     </div>
-                    <button className="p-1 rounded transition-colors hover:text-white" style={{ color: 'hsl(240 5% 50%)' }}>
-                        <Settings className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex gap-2">
+                         <button 
+                            onClick={() => logoutMutation.mutate()}
+                            className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                        <button className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors">
+                            <Settings className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
     );
 }
+
