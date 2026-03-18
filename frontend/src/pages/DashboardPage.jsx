@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import { format, isToday, isFuture, parseISO, differenceInDays, differenceInHours } from 'date-fns';
-import { Plus, Calendar, ArrowRight, Loader2 } from 'lucide-react';
+import { Plus, Calendar, ArrowRight, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getGreeting() {
@@ -184,6 +185,7 @@ function SubjectRow({ subject, color, onMark }) {
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
+    const [isExpanded, setIsExpanded] = useState(false);
     const user = useAuthStore((s) => s.user);
     const firstName = user?.name?.split(' ')[0] || 'Ayush';
     const today = format(new Date(), 'EEEE, MMMM d');
@@ -303,9 +305,15 @@ export default function DashboardPage() {
                     style={{ background: 'var(--card-bg)' }}>
                     <div className="flex items-center justify-between mb-8">
                         <h2 className="text-lg font-bold text-white tracking-tight">Subject Attendance</h2>
-                        <Link to="/attendance" className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-[var(--primary-accent)] hover:underline">
-                            View All <ArrowRight className="w-3 h-3" />
-                        </Link>
+                        {subjects.length > 5 && (
+                            <button 
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-[var(--primary-accent)] hover:underline"
+                            >
+                                {isExpanded ? 'Show Less' : 'View All'} 
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+                        )}
                     </div>
 
                     {isLoading ? (
@@ -325,7 +333,7 @@ export default function DashboardPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {subjects.slice(0, 5).map((sub, i) => (
+                                {subjects.slice(0, isExpanded ? subjects.length : 5).map((sub, i) => (
                                     <SubjectRow
                                         key={sub._id}
                                         subject={sub}
