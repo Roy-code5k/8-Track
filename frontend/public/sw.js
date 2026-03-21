@@ -25,7 +25,21 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: network-first for API, cache-first for static
 self.addEventListener('fetch', (event) => {
-    if (event.request.url.includes('/api/')) {
+    const url = event.request.url;
+
+    // Skip Vite dev server internals (HMR, module imports, etc.)
+    if (
+        url.includes('/@') ||
+        url.includes('/node_modules/') ||
+        url.includes('?t=') ||
+        url.includes('__vite') ||
+        url.includes('@react-refresh') ||
+        url.includes('@vite')
+    ) {
+        return; // Let the browser handle it natively
+    }
+
+    if (url.includes('/api/')) {
         // Network-first for API calls
         event.respondWith(
             fetch(event.request).catch(() =>
