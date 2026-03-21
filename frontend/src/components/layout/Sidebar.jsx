@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
     LayoutDashboard, CalendarCheck, ClipboardList,
-    GraduationCap, TrendingUp, Timer, BookOpen, Settings, Zap, LogOut
+    GraduationCap, TrendingUp, Timer, BookOpen, Zap, LogOut
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../lib/api';
@@ -100,11 +100,9 @@ export default function Sidebar() {
                          <button 
                             onClick={() => logoutMutation.mutate()}
                             className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"
+                            title="Logout"
                         >
                             <LogOut className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors">
-                            <Settings className="w-4 h-4" />
                         </button>
                     </div>
                 </div>

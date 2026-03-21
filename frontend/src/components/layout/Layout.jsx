@@ -9,7 +9,6 @@ import AttendancePage from '../../pages/AttendancePage';
 import AttendanceSummaryPage from '../../pages/AttendanceSummaryPage';
 import AssignmentsPage from '../../pages/AssignmentsPage';
 import ProgressPage from '../../pages/ProgressPage';
-import { Plus } from 'lucide-react';
 
 // Stub pages (filled in later phases)
 const ComingSoon = ({ name, phase }) => (
@@ -54,15 +53,6 @@ export default function Layout() {
                     </Routes>
                 </main>
             </div>
-
-            {/* Global Floating Action Button */}
-            <button className="fixed bottom-10 right-10 w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(232,168,56,0.3)] z-50 transition-all hover:scale-110 active:scale-95 group overflow-hidden"
-                style={{ background: 'var(--primary-accent)' }}
-                title="Quick Action"
-            >
-                <Plus className="w-8 h-8 text-[#0F0F13] transition-transform group-hover:rotate-90" />
-                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
-            </button>
         </div>
     );
 }

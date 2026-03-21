@@ -51,7 +51,6 @@ export default function FocusPage() {
     const [mode, setMode] = useState('work'); // 'work', 'short', 'long'
     const [timeLeft, setTimeLeft] = useState(timerSettings.work * 60);
     const [isRunning, setIsRunning] = useState(false);
-    const [sessionCount, setSessionCount] = useState(1);
     
     // Stats State
     const [focusTimeSec, setFocusTimeSec] = useState(0);
@@ -111,14 +110,9 @@ export default function FocusPage() {
         }
 
         if (mode === 'work') {
-            if (sessionCount % 4 === 0) {
-                switchMode('long');
-            } else {
-                switchMode('short');
-            }
+            switchMode('short');
             if (autoStartBreak) setIsRunning(true);
         } else {
-            setSessionCount(s => s + 1);
             switchMode('work');
         }
     };
@@ -156,14 +150,6 @@ export default function FocusPage() {
         });
     };
 
-    const handleQuickAddSubmit = (e) => {
-        e.preventDefault();
-        const input = e.target.elements.quickAdd.value.trim();
-        if(!input) return;
-        // Open the modal instead of instantly submitting so they can set priority
-        e.target.reset();
-        openAddModal(input);
-    };
 
     const toggleTask = (id, currentStatus) => {
         updateMutation.mutate({ id, data: { completed: !currentStatus } });
@@ -339,20 +325,14 @@ export default function FocusPage() {
                             <span>TODAY: {completedTasks.length} COMPLETED</span>
                             <span>{pendingTasks.length} REMAINING</span>
                         </div>
-                        <form onSubmit={handleQuickAddSubmit} className="relative cursor-text flex gap-2">
-                            <input 
-                                type="text"
-                                name="quickAdd"
-                                placeholder="+ What do you want to accomplish?"
-                                className="flex-1 bg-transparent border-2 border-dashed rounded-xl py-3 px-4 text-sm font-medium transition-colors focus:outline-none text-white placeholder-gray-500"
-                                style={{ borderColor: 'hsl(240 6% 20%)' }}
-                                onFocus={(e) => { e.target.style.borderColor = 'hsl(43 96% 56%)'; e.target.style.background = 'hsl(240 10% 9%)'; }}
-                                onBlur={(e) => { if(!e.target.value) { e.target.style.borderColor = 'hsl(240 6% 20%)'; e.target.style.background = 'transparent'; } }}
-                            />
-                            <button type="button" onClick={() => openAddModal()} className="px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-white flex items-center justify-center">
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        </form>
+                        <button 
+                            onClick={() => openAddModal()} 
+                            className="w-full py-4 rounded-2xl font-black tracking-tight flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:brightness-105"
+                            style={{ background: 'hsl(43 96% 56%)', color: 'black' }}
+                        >
+                            <Plus className="w-5 h-5 stroke-[3]" />
+                            Your task here
+                        </button>
                     </div>
                 </div>
 
@@ -363,10 +343,7 @@ export default function FocusPage() {
                     {/* Top Stats */}
                     <div className="flex justify-between items-center p-6 border-b" style={{ borderColor: 'hsl(240 6% 12%)' }}>
                         <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 text-xs font-bold rounded-full tracking-wider">
-                            {mode === 'work' ? 'WORK SESSION' : mode === 'short' ? 'SHORT BREAK' : 'LONG BREAK'}
-                        </span>
-                        <span className="text-xs font-semibold text-gray-400 tracking-wider">
-                            SESSION {sessionCount} OF 4
+                            {mode === 'work' ? 'WORK' : mode === 'short' ? 'SHORT BREAK' : 'LONG BREAK'}
                         </span>
                     </div>
 
@@ -435,6 +412,8 @@ export default function FocusPage() {
                             <button onClick={() => switchMode('work')} className={`hover:text-white transition-colors ${mode === 'work' ? 'text-white font-bold' : ''}`}>Work ({timerSettings.work}m)</button>
                             <span>•</span>
                             <button onClick={() => switchMode('short')} className={`hover:text-white transition-colors ${mode === 'short' ? 'text-white font-bold' : ''}`}>Break ({timerSettings.short}m)</button>
+                            <span>•</span>
+                            <button onClick={() => switchMode('long')} className={`hover:text-white transition-colors ${mode === 'long' ? 'text-white font-bold' : ''}`}>Long ({timerSettings.long}m)</button>
                         </p>
                     </div>
 
@@ -444,10 +423,6 @@ export default function FocusPage() {
                             <div>
                                 <span className="opacity-50 block mb-1">Focus time</span>
                                 <span className="text-white font-bold">{formatFocusTime(focusTimeSec)}</span>
-                            </div>
-                            <div>
-                                <span className="opacity-50 block mb-1">Sessions</span>
-                                <span className="text-white font-bold">{sessionCount - 1}</span>
                             </div>
                         </div>
 
@@ -562,7 +537,7 @@ export default function FocusPage() {
 
                         <form onSubmit={saveSettings} className="p-5 space-y-4">
                             <div className="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-gray-800">
-                                <label className="text-sm font-semibold text-gray-300">Focus Session</label>
+                                <label className="text-sm font-semibold text-gray-300">Work</label>
                                 <input type="number" required min="1" max="120" value={tempSettings.work} onChange={(e) => setTempSettings({ ...tempSettings, work: e.target.value })}
                                     className="w-20 text-center bg-transparent border-b-2 outline-none text-white font-bold" style={{ borderColor: 'hsl(43 96% 56%)' }} />
                             </div>
