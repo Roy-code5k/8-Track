@@ -142,6 +142,40 @@ function GoogleIcon() {
     );
 }
 
+// ─── Password Strength Indicator ──────────────────────────────────────────────
+function PasswordStrength({ password = '' }) {
+    const requirements = [
+        { label: '8 characters minimum', met: password.length >= 8 },
+        { label: 'At least one digit', met: /\d/.test(password) },
+        { label: 'At least one uppercase', met: /[A-Z]/.test(password) },
+        { label: 'One special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    ];
+
+    if (!password) return null;
+
+    return (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 px-1">
+            {requirements.map((req) => (
+                <div key={req.label} className="flex items-center gap-2">
+                    <div 
+                        className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                        style={{ 
+                            background: req.met ? '#F0A830' : '#2A2A30',
+                            boxShadow: req.met ? '0 0 8px rgba(240, 168, 48, 0.4)' : 'none'
+                        }} 
+                    />
+                    <span 
+                        className="text-[10px] font-medium transition-colors duration-300"
+                        style={{ color: req.met ? '#F0EEE8' : '#4A4A52' }}
+                    >
+                        {req.label}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 // ─── Auth Page ────────────────────────────────────────────────────────────────
 function AuthPage() {
     const [tab, setTab] = useState('signin');
@@ -150,7 +184,13 @@ function AuthPage() {
     const setAuth = useAuthStore((s) => s.setAuth);
     const { theme, toggleTheme } = useThemeStore();
 
-    const { register, handleSubmit, formState: { errors }, reset } = useForm();
+    const { register, handleSubmit, formState: { errors }, reset, watch } = useForm();
+    const password = watch('password', '');
+
+    const isPasswordValid = password.length >= 8 && 
+                            /\d/.test(password) && 
+                            /[A-Z]/.test(password) && 
+                            /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     const loginMutation = useMutation({
         mutationFn: (data) => api.post('/auth/login', data),
@@ -163,8 +203,12 @@ function AuthPage() {
     });
 
     const onSubmit = (data) => {
-        if (tab === 'signin') loginMutation.mutate({ email: data.email, password: data.password });
-        else registerMutation.mutate(data);
+        if (tab === 'signin') {
+            loginMutation.mutate({ email: data.email, password: data.password });
+        } else {
+            if (!isPasswordValid) return; // safety
+            registerMutation.mutate(data);
+        }
     };
 
     const isLoading = loginMutation.isPending || registerMutation.isPending;
@@ -288,7 +332,7 @@ function AuthPage() {
                         </div>
 
                         <div className="relative">
-                            <input {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Min 6 characters' } })}
+                            <input {...register('password', { required: 'Password is required' })}
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="Password"
                                 className={inputCls + ' pr-12'}
@@ -307,6 +351,8 @@ function AuthPage() {
                             {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
                         </div>
 
+                        {tab === 'register' && <PasswordStrength password={password} />}
+
                         {tab === 'signin' && (
                             <div className="text-right">
                                 <button type="button" className="text-xs transition-colors" style={{ color: '#6B6B72' }}>
@@ -323,7 +369,7 @@ function AuthPage() {
                         )}
 
                         {/* Primary CTA */}
-                        <button type="submit" disabled={isLoading}
+                        <button type="submit" disabled={isLoading || (tab === 'register' && !isPasswordValid)}
                             className="w-full py-3 rounded-lg text-sm font-bold transition-all duration-150 active:scale-[0.98] disabled:opacity-60 mt-1"
                             style={{ background: '#F0A830', color: '#1A1208', boxShadow: '0 4px 24px rgba(240, 168, 48, 0.25)' }}
                         >
