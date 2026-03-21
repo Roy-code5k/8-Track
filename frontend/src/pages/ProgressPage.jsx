@@ -44,12 +44,12 @@ function calculateStreak(history) {
 
 function calculateMaxStreak(history) {
     if (!history || history.length === 0) return 0;
-    const days = getDistinctDays(history).reverse(); // Oldest to newest
+    const days = getDistinctDays(history).reverse();
     let max = 0;
     let current = 0;
     let prev = null;
     for (let day of days) {
-        if (!prev || isSameDay(day, subDays(prev, -1))) { // Consecutive
+        if (!prev || isSameDay(day, subDays(prev, -1))) {
             current++;
         } else {
             current = 1;
@@ -60,22 +60,34 @@ function calculateMaxStreak(history) {
     return max;
 }
 
-// ─── Heatmap Component ───────────────────────────────────────────────────────
-function Heatmap({ history }) {
+// ─── Heatmap Component ────────────────────────────────────────────────────────
+function Heatmap({ history, schedule }) {
     const today = startOfToday();
     const start = subWeeks(today, 12);
     const days = eachDayOfInterval({ start, end: today });
+
     const counts = history.reduce((acc, h) => {
         const d = format(new Date(h.date), 'yyyy-MM-dd');
         acc[d] = (acc[d] || 0) + (h.status === 'present' ? 1 : 0);
         return acc;
     }, {});
 
-    const getColor = (count) => {
-        if (!count) return 'rgba(255, 255, 255, 0.05)';
+    const scheduledDays = new Set(
+        (schedule || [])
+            .filter(d => !d.isHoliday && (d.slots || []).length > 0)
+            .map(d => d.day)
+    );
+
+    const getColor = (day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        const dayName = format(day, 'EEEE');
+        const count = counts[key] || 0;
+        const hasClass = scheduledDays.has(dayName);
+        if (!hasClass) return 'rgba(255, 255, 255, 0.05)';
+        if (count === 0) return 'rgba(232, 92, 92, 0.25)';
         if (count >= 3) return '#E8A838';
         if (count >= 2) return 'rgba(232, 168, 56, 0.6)';
-        return 'rgba(232, 168, 56, 0.2)';
+        return 'rgba(232, 168, 56, 0.25)';
     };
 
     return (
@@ -83,25 +95,25 @@ function Heatmap({ history }) {
             <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black tracking-[0.2em] text-[var(--text-muted)] uppercase">Activity Heatmap (Last 12 Weeks)</p>
                 <div className="flex items-center gap-2 text-[8px] font-black text-[var(--text-muted)] uppercase tracking-wider">
-                    <span>Less</span>
+                    <span>Missed</span>
                     <div className="flex gap-1">
+                        <div className="w-1.5 h-1.5 rounded-sm" style={{ background: 'rgba(232, 92, 92, 0.25)' }} />
                         <div className="w-1.5 h-1.5 rounded-sm bg-white/5" />
-                        <div className="w-1.5 h-1.5 rounded-sm bg-[rgba(232,168,56,0.2)]" />
+                        <div className="w-1.5 h-1.5 rounded-sm bg-[rgba(232,168,56,0.25)]" />
                         <div className="w-1.5 h-1.5 rounded-sm bg-[rgba(232,168,56,0.6)]" />
                         <div className="w-1.5 h-1.5 rounded-sm bg-[#E8A838]" />
                     </div>
-                    <span>More</span>
+                    <span>Full</span>
                 </div>
             </div>
-            
             <div className="grid grid-flow-col gap-1.5" style={{ gridTemplateRows: 'repeat(7, 1fr)' }}>
                 {days.map(d => {
                     const ds = format(d, 'yyyy-MM-dd');
                     return (
-                        <div 
+                        <div
                             key={ds}
                             className="w-3.5 h-3.5 rounded-sm transition-colors hover:ring-1 hover:ring-white/20"
-                            style={{ background: getColor(counts[ds]) }}
+                            style={{ background: getColor(d) }}
                             title={`${ds}: ${counts[ds] || 0} classes`}
                         />
                     );
@@ -110,6 +122,7 @@ function Heatmap({ history }) {
         </div>
     );
 }
+
 
 // ─── Study Pattern Chart ─────────────────────────────────────────────────────
 function StudyPatternChart({ history }) {
@@ -261,6 +274,11 @@ export default function ProgressPage() {
         queryFn: () => api.get('/exams').then(r => r.data.exams || r.data),
     });
 
+    const { data: scheduleData = [] } = useQuery({
+        queryKey: ['schedule'],
+        queryFn: () => api.get('/schedule').then(r => r.data.schedule || []),
+    });
+
     const currentStreak = useMemo(() => calculateStreak(attendanceHistory), [attendanceHistory]);
     const maxStreakEver = useMemo(() => calculateMaxStreak(attendanceHistory), [attendanceHistory]);
     const totalDays = useMemo(() => getDistinctDays(attendanceHistory).length, [attendanceHistory]);
@@ -334,7 +352,7 @@ export default function ProgressPage() {
                 </div>
 
                 <div className="p-10 border-r border-white/5 flex flex-col justify-center">
-                    <Heatmap history={attendanceHistory} />
+                    <Heatmap history={attendanceHistory} schedule={scheduleData} />
                 </div>
 
                 <div className="p-10 space-y-8 flex flex-col justify-center">
@@ -388,7 +406,7 @@ export default function ProgressPage() {
                                         return (
                                             <div key={i} className="w-2 h-2 rounded-full transition-colors" 
                                                 style={{ background: dotColor }}
-                                                title={format(date, 'MMM d')} />
+                                                title={format(date, 'dd/MM/yyyy')} />
                                         );
                                     })}
                                 </div>

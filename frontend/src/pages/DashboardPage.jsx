@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
-import { format, isToday, isFuture, parseISO, differenceInDays, differenceInHours } from 'date-fns';
+import { format, isToday, isFuture, parseISO, differenceInDays, differenceInHours, isSameDay, subDays, startOfToday } from 'date-fns';
 import { Plus, Calendar, ArrowRight, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -30,6 +30,30 @@ function formatCountdown(date) {
     return parts.join(' ') || '< 1h';
 }
 
+function getDistinctDays(history) {
+    return [...new Set(history.map(h => format(new Date(h.date), 'yyyy-MM-dd')))]
+        .map(d => new Date(d))
+        .sort((a, b) => b - a);
+}
+
+function calculateStreak(history) {
+    if (!history || history.length === 0) return 0;
+    const distinctDays = getDistinctDays(history);
+    let streak = 0;
+    let curr = startOfToday();
+    const attendedToday = distinctDays.some(d => isSameDay(d, curr));
+    const attendedYesterday = distinctDays.some(d => isSameDay(d, subDays(curr, 1)));
+    if (!attendedToday && !attendedYesterday) return 0;
+    let checkDate = attendedToday ? curr : subDays(curr, 1);
+    for (let day of distinctDays) {
+        if (isSameDay(day, checkDate)) {
+            streak++;
+            checkDate = subDays(checkDate, 1);
+        } else if (day < checkDate) break;
+    }
+    return streak;
+}
+
 const STATUS_STYLE = {
     safe: { label: 'SAFE', color: 'var(--status-safe)', bg: 'rgba(76, 175, 125, 0.1)', bar: 'var(--status-safe)' },
     warning: { label: 'WARNING', color: 'var(--status-warning)', bg: 'rgba(232, 168, 56, 0.1)', bar: 'var(--status-warning)' },
@@ -39,12 +63,46 @@ const STATUS_STYLE = {
 const SUBJECT_COLORS = ['#3ABFBF', '#E8A838', '#E85C5C', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
 
 // ─── Streak Heatmap (last 4 weeks) ───────────────────────────────────────────
-function StreakHeatmap() {
+function StreakHeatmap({ schedule, attendanceHistory }) {
+    const today = new Date();
+
+    // Build a set of days (lowercase 'Monday') that have classes per the schedule
+    const scheduledDays = new Set(
+        (schedule || [])
+            .filter(d => !d.isHoliday && (d.slots || []).length > 0)
+            .map(d => d.day) // e.g. 'Monday'
+    );
+
+    // Build a map: 'yyyy-MM-dd' -> present count
+    const attendedMap = (attendanceHistory || []).reduce((acc, h) => {
+        if (h.status === 'present') {
+            const key = format(new Date(h.date), 'yyyy-MM-dd');
+            acc[key] = (acc[key] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    // 28 cells: from 27 days ago to today
     const cells = Array.from({ length: 28 }, (_, i) => {
-        const r = Math.random();
-        return r > 0.55 ? (r > 0.8 ? 'high' : 'med') : r > 0.35 ? 'low' : 'none';
+        const d = new Date(today);
+        d.setDate(d.getDate() - (27 - i));
+        const key = format(d, 'yyyy-MM-dd');
+        const dayName = format(d, 'EEEE'); // 'Monday', etc.
+        const hasClass = scheduledDays.has(dayName);
+        const attended = attendedMap[key] || 0;
+
+        if (!hasClass) return 'none';      // no class day – neutral
+        if (attended >= 3) return 'high';  // ≥3 classes attended
+        if (attended >= 1) return 'med';   // some attendance
+        return 'low';                      // class day but nothing recorded
     });
-    const colorMap = { none: 'rgba(255, 255, 255, 0.05)', low: 'rgba(232, 168, 56, 0.2)', med: 'rgba(232, 168, 56, 0.5)', high: 'var(--primary-accent)' };
+
+    const colorMap = {
+        none: 'rgba(255, 255, 255, 0.05)',
+        low:  'rgba(232, 92, 92, 0.3)',    // missed class
+        med:  'rgba(232, 168, 56, 0.5)',   // partial
+        high: 'var(--primary-accent)',     // fully attended
+    };
 
     return (
         <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
@@ -55,6 +113,7 @@ function StreakHeatmap() {
         </div>
     );
 }
+
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent, extra, progress }) {
@@ -82,52 +141,98 @@ function StatCard({ label, value, sub, accent, extra, progress }) {
 }
 
 // ─── Today's Classes ────────────────────────────────────────────────────────
-const TODAYS_CLASSES = [
-    { time: '09:00', end: '10:30', name: 'Applied Physics II', room: 'Lecture Hall B2', prof: 'Prof. Sharma', now: true },
-    { time: '11:00', end: '12:30', name: 'Discrete Math', room: 'Seminar Room 1', prof: 'Dr. Gupta', now: false },
-    { time: '14:00', end: '15:30', name: 'Data Structures Lab', room: 'CS Lab 4', prof: 'Asst. Prof. Verma', now: false },
-];
+function TodaysClasses({ dayData, isLoading }) {
+    if (isLoading) {
+        return (
+            <div className="rounded-3xl p-6 border border-[var(--active-highlight)] flex items-center justify-center h-64" style={{ background: 'var(--card-bg)' }}>
+                <p className="text-sm font-medium text-[var(--text-muted)] animate-pulse">Loading schedule...</p>
+            </div>
+        );
+    }
 
-function TodaysClasses() {
+    if (!dayData) {
+         return (
+            <div className="rounded-3xl p-6 border border-[var(--active-highlight)] flex flex-col items-center justify-center h-64 text-center" style={{ background: 'var(--card-bg)' }}>
+                <Calendar className="w-8 h-8 text-[var(--text-muted)] mb-3 opacity-50" />
+                <p className="text-sm font-bold text-white mb-1">No schedule found</p>
+                <p className="text-xs font-medium text-[var(--text-muted)]">Set up your schedule in Subjects.</p>
+            </div>
+        );
+    }
+
+    if (dayData.isHoliday) {
+        return (
+            <div className="rounded-3xl p-6 border flex flex-col items-center justify-center h-64 text-center" style={{ background: 'var(--card-bg)', borderColor: 'rgba(232, 92, 92, 0.2)' }}>
+                <div className="w-12 h-12 rounded-full mb-3 flex items-center justify-center" style={{ background: 'rgba(232, 92, 92, 0.1)' }}>
+                    <Calendar className="w-6 h-6" style={{ color: 'var(--status-danger)' }} />
+                </div>
+                <p className="text-lg font-bold text-white mb-1 tracking-tight">It's a Holiday!</p>
+                <p className="text-sm font-medium text-[var(--text-muted)]">Take a break and relax today.</p>
+            </div>
+        );
+    }
+
+    const slots = dayData.slots || [];
+
+    // Figure out which class is "now"
+    const nowHHMM = format(new Date(), 'HH:mm');
+    const enrichedSlots = slots.map(slot => {
+        const isNow = nowHHMM >= slot.startTime && nowHHMM <= slot.endTime;
+        return { ...slot, isNow };
+    }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
     return (
-        <div className="rounded-3xl p-6 border border-[var(--active-highlight)]"
+        <div className="rounded-3xl p-6 border border-[var(--active-highlight)] flex flex-col"
             style={{ background: 'var(--card-bg)' }}>
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-lg font-bold text-white tracking-tight">Today's Classes</h2>
-                <button className="p-2 rounded-xl text-[var(--primary-accent)] hover:bg-[rgba(232,168,56,0.1)] transition-colors">
+                <Link to="/subjects" className="p-2 rounded-xl text-[var(--primary-accent)] hover:bg-[rgba(232,168,56,0.1)] transition-colors" title="Edit Schedule">
                     <Calendar className="w-5 h-5" />
-                </button>
+                </Link>
             </div>
-            <div className="space-y-6">
-                {TODAYS_CLASSES.map((cls) => (
-                    <div key={cls.time} className="flex gap-4 group">
-                        {/* Time */}
-                        <div className="text-right flex-shrink-0 w-14 pt-1">
-                            <p className="text-sm font-bold text-white font-mono">{cls.time}</p>
-                            <p className="text-[11px] font-medium text-[var(--text-muted)]">{cls.end}</p>
-                        </div>
-                        {/* Left accent bar */}
-                        <div className="w-[3px] rounded-full flex-shrink-0"
-                            style={{ background: cls.now ? 'var(--primary-accent)' : 'var(--active-highlight)' }} />
-                        {/* Info */}
-                        <div className={`flex-1 p-4 rounded-2xl transition-all ${cls.now ? 'bg-[var(--active-highlight)] outline outline-1 outline-[rgba(232,168,56,0.2)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}>
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-bold text-white tracking-tight">{cls.name}</p>
-                                {cls.now && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest"
-                                        style={{ background: 'var(--primary-accent)', color: 'var(--sidebar-bg)' }}>NOW</span>
-                                )}
+
+            {enrichedSlots.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                     <p className="text-sm font-bold text-white mb-1">No classes today</p>
+                     <p className="text-xs font-medium text-[var(--text-muted)]">You're completely free!</p>
+                </div>
+            ) : (
+                <div className="space-y-6 flex-1">
+                    {enrichedSlots.map((cls) => (
+                        <div key={cls._id} className="flex gap-4 group">
+                            {/* Time */}
+                            <div className="text-right flex-shrink-0 w-14 pt-1">
+                                <p className="text-sm font-bold text-white font-mono">{cls.startTime}</p>
+                                <p className="text-[11px] font-medium text-[var(--text-muted)]">{cls.endTime}</p>
                             </div>
-                            <p className="text-[12px] font-medium mt-1 text-[var(--text-muted)]">
-                                {cls.room} • {cls.prof}
-                            </p>
+                            {/* Left accent bar */}
+                            <div className="w-[3px] rounded-full flex-shrink-0"
+                                style={{ background: cls.isNow ? 'var(--primary-accent)' : 'var(--active-highlight)' }} />
+                            {/* Info */}
+                            <div className={`flex-1 p-4 rounded-2xl transition-all ${cls.isNow ? 'bg-[var(--active-highlight)] outline outline-1 outline-[rgba(232,168,56,0.2)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}>
+                                <div className="flex flex-col">
+                                    <div className="flex items-center justify-between mb-1">
+                                         <p className="text-sm font-bold text-white tracking-tight leading-tight">{cls.subjectName}</p>
+                                         {cls.isNow && (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-full font-black tracking-widest"
+                                                style={{ background: 'var(--primary-accent)', color: 'var(--sidebar-bg)' }}>NOW</span>
+                                        )}
+                                    </div>
+                                    {cls.room && (
+                                        <p className="text-[12px] font-medium text-[var(--text-muted)]">
+                                            {cls.room}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
-            <button className="w-full mt-10 text-xs font-bold py-3 rounded-xl transition-all hover:bg-[var(--active-highlight)] border border-[var(--active-highlight)] text-[var(--text-muted)]">
+                    ))}
+                </div>
+            )}
+            
+            <Link to="/subjects" className="block text-center w-full mt-10 text-xs font-bold py-3 rounded-xl transition-all hover:bg-[var(--active-highlight)] border border-[var(--active-highlight)] text-[var(--text-muted)]">
                 View full schedule
-            </button>
+            </Link>
         </div>
     );
 }
@@ -188,7 +293,6 @@ export default function DashboardPage() {
     const [isExpanded, setIsExpanded] = useState(false);
     const user = useAuthStore((s) => s.user);
     const firstName = user?.name?.split(' ')[0] || '';
-    const today = format(new Date(), 'EEEE, MMMM d');
     const queryClient = useQueryClient();
 
     const { data: subjects = [], isLoading } = useQuery({
@@ -207,11 +311,23 @@ export default function DashboardPage() {
         queryFn: () => api.get('/tasks').then(r => r.data.tasks || r.data),
     });
 
+    const { data: scheduleData, isLoading: scheduleLoading } = useQuery({
+        queryKey: ['schedule'],
+        queryFn: () => api.get('/schedule').then(r => r.data.schedule),
+    });
+
+    const { data: attendanceHistory = [] } = useQuery({
+        queryKey: ['global-attendance'],
+        queryFn: () => api.get('/attendance').then(r => r.data.history || r.data),
+    });
+
     const markMutation = useMutation({
         mutationFn: ({ subjectId, status }) =>
             api.post('/attendance/mark', { subjectId, status, date: new Date().toISOString() }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subjects'] }),
     });
+
+    const currentStreak = useMemo(() => calculateStreak(attendanceHistory), [attendanceHistory]);
 
     // Calculations
     const pendingCount = [...assignments, ...tasks].filter(t => {
@@ -233,6 +349,12 @@ export default function DashboardPage() {
         : 0;
     const atRisk = subjects.filter(s => s.status === 'warning' || s.status === 'danger').length;
 
+    // Get today's schedule data
+    const currentDayName = format(new Date(), 'EEEE'); // e.g., 'Monday'
+    const today = format(new Date(), 'dd/MM/yyyy');
+    
+    const todaysSchedule = scheduleData?.find(d => d.day === currentDayName);
+
     return (
         <div className="space-y-8 pb-10 relative">
             {/* ── Top Row: Greeting + Streak ── */}
@@ -241,7 +363,7 @@ export default function DashboardPage() {
                     <h2 className="text-4xl font-black text-white tracking-tighter leading-tight">
                         {getGreeting()}, {firstName} 👋
                     </h2>
-                    <p className="text-[15px] font-medium mt-2 text-[var(--text-muted)]">{today}</p>
+                    <p className="text-[15px] font-medium mt-2 text-[var(--secondary-accent)]">{today}</p>
                 </div>
 
                 {/* Streak Card */}
@@ -251,12 +373,12 @@ export default function DashboardPage() {
                         <p className="text-[10px] font-black mb-3 tracking-[0.2em] text-[var(--text-muted)] uppercase">Current Streak</p>
                         <div className="flex items-center gap-3">
                             <span className="text-3xl filter drop-shadow-[0_0_8px_rgba(232,168,56,0.5)]">🔥</span>
-                            <span className="text-4xl font-black text-white font-mono">12</span>
+                            <span className="text-4xl font-black text-white font-mono">{currentStreak}</span>
                             <span className="text-sm font-bold text-[var(--text-muted)]">days</span>
                         </div>
                     </div>
                     <div>
-                        <StreakHeatmap />
+                        <StreakHeatmap schedule={scheduleData} attendanceHistory={attendanceHistory} />
                         <div className="flex justify-between mt-3 px-0.5">
                             <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Activity</p>
                             <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Last 4 Weeks</p>
@@ -346,7 +468,7 @@ export default function DashboardPage() {
                     )}
                 </div>
 
-                <TodaysClasses />
+                <TodaysClasses dayData={todaysSchedule} isLoading={scheduleLoading} />
             </div>
         </div>
     );

@@ -190,7 +190,7 @@ export default function AttendancePage() {
                                 {history.slice(0, 5).map((rec, i) => (
                                     <tr key={i} className="group hover:bg-[rgba(255,255,255,0.01)] transition-colors">
                                         <td className="py-5 pr-4">
-                                            <span className="text-[14px] font-bold text-white">{format(new Date(rec.date), 'MMM dd')}</span>
+                                            <span className="text-[14px] font-bold text-white">{format(new Date(rec.date), 'dd/MM/yyyy')}</span>
                                         </td>
                                         <td className="py-5 pr-4">
                                             <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border"

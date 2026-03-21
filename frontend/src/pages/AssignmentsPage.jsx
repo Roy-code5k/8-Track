@@ -76,11 +76,11 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
     
     let dueLabel = '';
     if (task.status === 'completed') {
-        dueLabel = `Completed ${format(new Date(task.updatedAt || new Date()), 'MMM dd')}`;
+        dueLabel = `Completed ${format(new Date(task.updatedAt || new Date()), 'dd/MM/yyyy')}`;
     } else {
         if (isToday(dueDate)) dueLabel = 'Due Today';
         else if (isThisWeek(dueDate)) dueLabel = `Due in ${format(dueDate, 'd')} days`; // Simplified
-        else dueLabel = `Due ${format(dueDate, 'MMM dd')}`;
+        else dueLabel = `Due ${format(dueDate, 'dd/MM/yyyy')}`;
     }
 
     const isCompleted = task.status === 'completed';
