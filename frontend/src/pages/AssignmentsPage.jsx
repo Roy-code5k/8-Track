@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import api from '../lib/api';
+import { useToast } from '../components/common/Toast';
 
 // ─── Constants & Colors ───────────────────────────────────────────────────────
 const SUBJECT_STYLING = {
@@ -193,9 +194,11 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
 // ─── Assignments Page ────────────────────────────────────────────────────────
 export default function AssignmentsPage() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
     const [filter, setFilter] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+
 
     // ── Queries and Mutations ──
     const { data: assignmentsData, isLoading: tasksLoading } = useQuery({
@@ -216,6 +219,7 @@ export default function AssignmentsPage() {
             queryClient.invalidateQueries({ queryKey: ['assignments'] });
             closeModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to save assignment', 'error'),
     });
 
     const deleteMutation = useMutation({
@@ -224,6 +228,7 @@ export default function AssignmentsPage() {
             queryClient.invalidateQueries({ queryKey: ['assignments'] });
             closeModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to delete assignment', 'error'),
     });
 
     // ── Column Data ──

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import { format, isToday, isFuture, parseISO, differenceInDays, differenceInHours, isSameDay, subDays, startOfToday } from 'date-fns';
 import { Plus, Calendar, ArrowRight, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useToast } from '../components/common/Toast';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getGreeting() {
@@ -294,6 +295,7 @@ export default function DashboardPage() {
     const user = useAuthStore((s) => s.user);
     const firstName = user?.name?.split(' ')[0] || '';
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
 
     const { data: subjects = [], isLoading } = useQuery({
         queryKey: ['subjects'],
@@ -325,6 +327,7 @@ export default function DashboardPage() {
         mutationFn: ({ subjectId, status }) =>
             api.post('/attendance/mark', { subjectId, status, date: new Date().toISOString() }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subjects'] }),
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to mark attendance', 'error'),
     });
 
     const currentStreak = useMemo(() => calculateStreak(attendanceHistory), [attendanceHistory]);

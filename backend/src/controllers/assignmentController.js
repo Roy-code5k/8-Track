@@ -1,6 +1,6 @@
 const Assignment = require('../models/Assignment');
 
-const getAssignments = async (req, res) => {
+const getAssignments = async (req, res, next) => {
     try {
         await Assignment.updateMany(
             { userId: req.user.id, status: 'pending', dueDate: { $lt: new Date() } },
@@ -10,12 +10,12 @@ const getAssignments = async (req, res) => {
             .populate('subjectId', 'name')
             .sort({ dueDate: 1 });
         res.json({ assignments });
-    } catch {
-        res.status(500).json({ message: 'Failed to fetch assignments' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const createAssignment = async (req, res) => {
+const createAssignment = async (req, res, next) => {
     const { title, subjectId, dueDate, priority, status } = req.body;
     if (!title || !dueDate) return res.status(400).json({ message: 'Title and due date are required' });
     try {
@@ -28,12 +28,12 @@ const createAssignment = async (req, res) => {
             status: status || 'pending'
         });
         res.status(201).json({ assignment });
-    } catch {
-        res.status(500).json({ message: 'Failed to create assignment' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const updateAssignment = async (req, res) => {
+const updateAssignment = async (req, res, next) => {
     try {
         const assignment = await Assignment.findOneAndUpdate(
             { _id: req.params.id, userId: req.user.id },
@@ -42,18 +42,18 @@ const updateAssignment = async (req, res) => {
         );
         if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
         res.json({ assignment });
-    } catch {
-        res.status(500).json({ message: 'Failed to update assignment' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const deleteAssignment = async (req, res) => {
+const deleteAssignment = async (req, res, next) => {
     try {
         const assignment = await Assignment.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
         if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
         res.json({ message: 'Assignment deleted' });
-    } catch {
-        res.status(500).json({ message: 'Failed to delete assignment' });
+    } catch (err) {
+        next(err);
     }
 };
 

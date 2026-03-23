@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { GraduationCap, Plus, Trash2, X, Award } from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from '../components/common/Toast';
 
 export default function ExamsPage() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     // Form state
@@ -33,6 +35,7 @@ export default function ExamsPage() {
             queryClient.invalidateQueries({ queryKey: ['exams'] });
             closeModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to save exam', 'error'),
     });
 
     const deleteMutation = useMutation({
@@ -40,6 +43,7 @@ export default function ExamsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['exams'] });
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to delete exam', 'error'),
     });
 
     // ── Handlers ──

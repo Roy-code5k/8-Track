@@ -59,7 +59,7 @@ const register = async (req, res) => {
             },
         });
     } catch (err) {
-        return res.status(500).json({ message: 'Server error during registration' });
+        return next(err);
     }
 };
 
@@ -102,7 +102,7 @@ const login = async (req, res) => {
             },
         });
     } catch (err) {
-        return res.status(500).json({ message: 'Server error during login' });
+        return next(err);
     }
 };
 
@@ -211,7 +211,7 @@ const sendOtp = async (req, res) => {
         return res.status(200).json({ message: 'OTP sent to your email. It expires in ' + expiresMinutes + ' minutes.' });
     } catch (err) {
         console.error('sendOtp error:', err);
-        return res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+        return next(err);
     }
 };
 
@@ -274,7 +274,7 @@ const verifyOtpAndRegister = async (req, res) => {
         });
     } catch (err) {
         console.error('verifyOtpAndRegister error:', err);
-        return res.status(500).json({ message: 'Server error during verification' });
+        return next(err);
     }
 };
 

@@ -5,9 +5,11 @@ import {
     CheckCircle2, Circle, MoreVertical, Plus, Settings2, X
 } from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from '../components/common/Toast';
 
 export default function FocusPage() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
 
     // ─── Query / Mutation ────────────────────────────────────────────────────
     const { data: tasks = [], isLoading } = useQuery({
@@ -21,16 +23,19 @@ export default function FocusPage() {
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
             closeAddModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to add task', 'error'),
     });
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }) => api.put(`/tasks/${id}`, data),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to update task', 'error'),
     });
 
     const deleteMutation = useMutation({
         mutationFn: (id) => api.delete(`/tasks/${id}`),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to delete task', 'error'),
     });
 
     // ─── Local State ─────────────────────────────────────────────────────────

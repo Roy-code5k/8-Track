@@ -3,16 +3,16 @@ const Attendance = require('../models/Attendance');
 const Assignment = require('../models/Assignment');
 const Exam = require('../models/Exam');
 
-const getSubjects = async (req, res) => {
+const getSubjects = async (req, res, next) => {
     try {
         const subjects = await Subject.find({ userId: req.user.id }).sort({ name: 1 });
         res.json({ subjects });
-    } catch {
-        res.status(500).json({ message: 'Failed to fetch subjects' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const createSubject = async (req, res) => {
+const createSubject = async (req, res, next) => {
     const { name, totalExpectedClasses } = req.body;
     if (!name || !name.trim()) {
         return res.status(400).json({ message: 'Subject name is required' });
@@ -25,14 +25,11 @@ const createSubject = async (req, res) => {
         });
         res.status(201).json({ subject });
     } catch (err) {
-        if (err.code === 11000) {
-            return res.status(409).json({ message: 'Subject name already exists' });
-        }
-        res.status(500).json({ message: 'Failed to create subject' });
+        next(err);
     }
 };
 
-const updateSubject = async (req, res) => {
+const updateSubject = async (req, res, next) => {
     const { name, totalExpectedClasses } = req.body;
     try {
         const subject = await Subject.findOneAndUpdate(
@@ -42,12 +39,12 @@ const updateSubject = async (req, res) => {
         );
         if (!subject) return res.status(404).json({ message: 'Subject not found' });
         res.json({ subject });
-    } catch {
-        res.status(500).json({ message: 'Failed to update subject' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const deleteSubject = async (req, res) => {
+const deleteSubject = async (req, res, next) => {
     try {
         const subject = await Subject.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
         if (!subject) return res.status(404).json({ message: 'Subject not found' });
@@ -58,8 +55,8 @@ const deleteSubject = async (req, res) => {
         await Exam.deleteMany({ subjectId: req.params.id });
 
         res.json({ message: 'Subject and all related data deleted' });
-    } catch {
-        res.status(500).json({ message: 'Failed to delete subject' });
+    } catch (err) {
+        next(err);
     }
 };
 

@@ -2,7 +2,7 @@ const Attendance = require('../models/Attendance');
 const Subject = require('../models/Subject');
 const { calcPercentage, calcStatus, safeToMiss, recoveryNeeded } = require('../utils/prediction');
 
-const markAttendance = async (req, res) => {
+const markAttendance = async (req, res, next) => {
     const { subjectId, status, date } = req.body;
     if (!subjectId || !status) {
         return res.status(400).json({ message: 'subjectId and status are required' });
@@ -31,12 +31,12 @@ const markAttendance = async (req, res) => {
         };
 
         res.status(201).json({ attendance, subject, prediction });
-    } catch {
-        res.status(500).json({ message: 'Failed to mark attendance' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const getAttendanceHistory = async (req, res) => {
+const getAttendanceHistory = async (req, res, next) => {
     const { subjectId } = req.params;
     try {
         const history = await Attendance.find({ userId: req.user.id, subjectId }).sort({ date: -1 });
@@ -49,12 +49,12 @@ const getAttendanceHistory = async (req, res) => {
             : null;
 
         res.json({ history, subject, prediction });
-    } catch {
-        res.status(500).json({ message: 'Failed to fetch attendance history' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const updateAttendance = async (req, res) => {
+const updateAttendance = async (req, res, next) => {
     const { status } = req.body;
     try {
         const record = await Attendance.findOne({ _id: req.params.id, userId: req.user.id });
@@ -74,12 +74,12 @@ const updateAttendance = async (req, res) => {
         }
 
         res.json({ record, subject });
-    } catch {
-        res.status(500).json({ message: 'Failed to update attendance' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const deleteAttendance = async (req, res) => {
+const deleteAttendance = async (req, res, next) => {
     try {
         const record = await Attendance.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
         if (!record) return res.status(404).json({ message: 'Record not found' });
@@ -94,17 +94,17 @@ const deleteAttendance = async (req, res) => {
         }
 
         res.json({ message: 'Attendance record deleted' });
-    } catch {
-        res.status(500).json({ message: 'Failed to delete attendance' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const getGlobalAttendance = async (req, res) => {
+const getGlobalAttendance = async (req, res, next) => {
     try {
         const history = await Attendance.find({ userId: req.user.id }).sort({ date: -1 });
         res.json({ history });
-    } catch {
-        res.status(500).json({ message: 'Failed to fetch overall attendance history' });
+    } catch (err) {
+        next(err);
     }
 };
 

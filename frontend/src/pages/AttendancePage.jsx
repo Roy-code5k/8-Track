@@ -8,6 +8,7 @@ import {
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 import api from '../lib/api';
 import { useState } from 'react';
+import { useToast } from '../components/common/Toast';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
@@ -20,6 +21,7 @@ const STATUS_STYLE = {
 export default function AttendancePage() {
     const { id: subjectId } = useParams();
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
     const [currentDate, setCurrentDate] = useState(new Date());
 
     // ── Queries ──
@@ -34,6 +36,7 @@ export default function AttendancePage() {
              queryClient.invalidateQueries({ queryKey: ['attendance', subjectId] });
              queryClient.invalidateQueries({ queryKey: ['subjects'] });
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to mark attendance', 'error'),
     });
 
     const { history = [], subject = {}, prediction = {} } = data || {};

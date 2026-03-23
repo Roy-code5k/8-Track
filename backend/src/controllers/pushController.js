@@ -12,18 +12,18 @@ if (isValidVapidKey(process.env.VAPID_PUBLIC_KEY) && isValidVapidKey(process.env
     );
 }
 
-const saveSubscription = async (req, res) => {
+const saveSubscription = async (req, res, next) => {
     const { subscription } = req.body;
     if (!subscription) return res.status(400).json({ message: 'Subscription is required' });
     try {
         await User.findByIdAndUpdate(req.user.id, { pushSubscription: subscription });
         res.status(201).json({ message: 'Subscription saved' });
-    } catch {
-        res.status(500).json({ message: 'Failed to save subscription' });
+    } catch (err) {
+        next(err);
     }
 };
 
-const sendTestNotification = async (req, res) => {
+const sendTestNotification = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.id);
         if (!user?.pushSubscription) {
@@ -34,8 +34,8 @@ const sendTestNotification = async (req, res) => {
             JSON.stringify({ title: '8Track', body: 'Push notifications are working! 🎉' })
         );
         res.json({ message: 'Test notification sent' });
-    } catch {
-        res.status(500).json({ message: 'Failed to send notification' });
+    } catch (err) {
+        next(err);
     }
 };
 

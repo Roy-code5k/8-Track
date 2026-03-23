@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Plus, MoreHorizontal, CheckCircle2, AlertCircle, XCircle, Trash2, Edit2, X, CalendarX, Clock } from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from '../components/common/Toast';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const SUBJECT_COLORS = ['#3b82f6', '#f97316', '#ef4444', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
@@ -24,7 +25,8 @@ const STATUS_STYLE = {
 // ─── Weekly Schedule Component ────────────────────────────────────────────────
 function WeeklySchedule() {
     const queryClient = useQueryClient();
-    const [addingDay, setAddingDay] = useState(null); // day name for the inline add form
+    const { showToast } = useToast();
+    const [addingDay, setAddingDay] = useState(null);
     const [form, setForm] = useState({ subjectName: '', startTime: '', endTime: '', room: '' });
 
     const { data, isLoading } = useQuery({
@@ -39,16 +41,19 @@ function WeeklySchedule() {
             setAddingDay(null);
             setForm({ subjectName: '', startTime: '', endTime: '', room: '' });
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to add class slot', 'error'),
     });
 
     const deleteSlotMutation = useMutation({
         mutationFn: ({ day, slotId }) => api.delete(`/schedule/${day}/slots/${slotId}`),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to delete class slot', 'error'),
     });
 
     const toggleHolidayMutation = useMutation({
         mutationFn: ({ day, isHoliday }) => api.patch(`/schedule/${day}/holiday`, { isHoliday }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule'] }),
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to update holiday', 'error'),
     });
 
     const handleAddSlot = (e, day) => {
@@ -228,6 +233,7 @@ function WeeklySchedule() {
 // ─── Subjects Page ───────────────────────────────────────────────────────────
 export default function SubjectsPage() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingSubject, setEditingSubject] = useState(null);
 
@@ -263,6 +269,7 @@ export default function SubjectsPage() {
             queryClient.invalidateQueries({ queryKey: ['subjects'] });
             closeModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to create subject', 'error'),
     });
 
     const updateMutation = useMutation({
@@ -271,6 +278,7 @@ export default function SubjectsPage() {
             queryClient.invalidateQueries({ queryKey: ['subjects'] });
             closeModal();
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to update subject', 'error'),
     });
 
     const deleteMutation = useMutation({
@@ -278,6 +286,7 @@ export default function SubjectsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['subjects'] });
         },
+        onError: (err) => showToast(err.response?.data?.message || 'Failed to delete subject', 'error'),
     });
 
     // ── Handlers ──

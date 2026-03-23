@@ -12,12 +12,13 @@ const taskRoutes = require("./routes/task.routes");
 const examRoutes = require("./routes/exam.routes");
 const pushRoutes = require("./routes/push.routes");
 const scheduleRoutes = require("./routes/schedule.routes");
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || "";
 
-// Middleware
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -27,7 +28,7 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// Routes
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -37,17 +38,25 @@ app.use("/api/exams", examRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/schedule", scheduleRoutes);
 
-// Health check
+// ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "8Track API is running 🚀" });
 });
 
-// Start the server immediately so it doesn't block incoming requests
+// ── 404 Not Found (must be after all routes) ──────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// ── Global Error Handler (must be last middleware) ────────────────────────────
+app.use(errorHandler);
+
+// ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-// Connect to MongoDB in the background
+// ── MongoDB connection ────────────────────────────────────────────────────────
 mongoose
 .connect(MONGO_URI, {
     serverSelectionTimeoutMS: 60000,
@@ -56,7 +65,15 @@ mongoose
     console.log('✅ Connected to MongoDB Atlas');
 })
 .catch((err) => {
-    console.error('❌ MongoDB connection error:', err);
-    // Don't exit process so the API can still report health checks
+    console.error('❌ MongoDB connection error:', err.message);
 });
 
+// ── Process-level safety nets ─────────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+    console.error('🔴 Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('💥 Uncaught Exception:', err.message);
+    process.exit(1);
+});
