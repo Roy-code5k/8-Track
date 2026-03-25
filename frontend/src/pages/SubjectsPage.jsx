@@ -459,11 +459,11 @@ export default function SubjectsPage() {
                                 {/* Top Accent Bar */}
                                 <div className="absolute top-0 left-0 right-0 h-1" style={{ background: color }} />
 
-                                <div className="flex items-start justify-between mb-4">
-                                    <h3 className="text-lg font-bold text-white leading-tight pr-6">{sub.name}</h3>
+                                <div className="flex items-start justify-between mb-4 gap-4">
+                                    <h3 className="text-lg font-bold text-white leading-tight break-all flex-1 min-w-0">{sub.name}</h3>
 
                                     {/* Action Menu Buttons */}
-                                    <div className="absolute top-4 right-4 flex gap-1 transition-opacity">
+                                    <div className="flex gap-1 shrink-0 transition-opacity translate-y-[-2px]">
                                         <button onClick={() => openModal(sub)} className="p-1.5 rounded bg-black/40 hover:bg-black/80 text-white transition-colors">
                                             <Edit2 className="w-3.5 h-3.5" />
                                         </button>
@@ -591,6 +591,8 @@ export default function SubjectsPage() {
         </div>
     );
 }
+
+
 
 
 
