@@ -22,6 +22,77 @@ const STATUS_STYLE = {
     danger: { label: 'DANGER', color: '#ef4444', bg: '#ef444420', icon: XCircle },
 };
 
+// ─── Custom Time Picker ───────────────────────────────────────────────────────
+function TimeInput({ value, onChange, label, align = "left" }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+    const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+    const [h, m] = (value || '00:00').split(':');
+
+    return (
+        <div className="relative">
+            <label className="text-[9px] font-black uppercase tracking-widest mb-1 block opacity-40 ml-1">{label}</label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl bg-black/20 border transition-all text-[11px] font-bold"
+                style={{ borderColor: isOpen ? 'hsl(43 96% 56%)' : 'hsl(240 6% 20%)', color: value ? 'white' : 'hsl(240 5% 45%)' }}
+            >
+                                <Clock className="w-3.5 h-3.5 text-yellow-500/80" />
+                <span>{value || "--:--"}</span>
+            </button>
+
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-[110]" onClick={() => setIsOpen(false)} />
+                    <div className={`absolute bottom-[calc(100%+12px)] ${align === "right" ? "right-0" : "left-0"} z-[120] w-40 p-3 rounded-2xl shadow-2xl border flex flex-col gap-3 backdrop-blur-md`}
+                        style={{ background: 'hsl(240 10% 9% / 0.95)', borderColor: 'hsl(240 6% 25%)' }}>
+                        
+                        <div className="flex gap-2">
+                            {/* Hours */}
+                            <div className="flex-1 flex flex-col">
+                                <p className="text-[10px] font-black uppercase text-white/20 mb-2 ml-2">Hour</p>
+                                <div className="h-40 overflow-y-auto pr-1 custom-scrollbar scroll-smooth">
+                                    {hours.map(hour => (
+                                        <button
+                                            key={hour}
+                                            type="button"
+                                            onClick={() => onChange(`${hour}:${m || '00'}`)}
+                                            className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold transition-colors mb-1 ${h === hour ? 'bg-yellow-500 text-black' : 'hover:bg-white/5 text-white/70'}`}
+                                        >
+                                            {hour}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Minutes */}
+                            <div className="flex-1 flex flex-col">
+                                <p className="text-[10px] font-black uppercase text-white/20 mb-2 ml-2">Min</p>
+                                <div className="h-40 overflow-y-auto pr-1 custom-scrollbar scroll-smooth">
+                                    {minutes.map(min => (
+                                        <button
+                                            key={min}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(`${h || '00'}:${min}`);
+                                                setIsOpen(false);
+                                            }}
+                                            className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold transition-colors mb-1 ${m === min ? 'bg-yellow-500 text-black' : 'hover:bg-white/5 text-white/70'}`}
+                                        >
+                                            {min}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 // ─── Weekly Schedule Component ────────────────────────────────────────────────
 function WeeklySchedule({ subjects = [] }) {
     const queryClient = useQueryClient();
@@ -108,7 +179,7 @@ function WeeklySchedule({ subjects = [] }) {
                         return (
                             <div
                                 key={day}
-                                className="rounded-2xl overflow-hidden flex flex-col min-h-[260px]"
+                                className="rounded-2xl flex flex-col min-h-[260px]"
                                 style={{
                                     background: isHoliday ? 'hsl(240 8% 8%)' : 'hsl(240 10% 9%)',
                                     border: `1px solid ${isHoliday ? 'hsl(0 60% 25%)' : 'hsl(240 6% 15%)'}`,
@@ -190,31 +261,31 @@ function WeeklySchedule({ subjects = [] }) {
                                                             <option key={s._id} value={s.name} />
                                                         ))}
                                                     </datalist>
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <input
-                                                            type="time"
-                                                            required
+                                                    <div className="flex flex-col gap-2 pt-1">
+                                                        <TimeInput
+                                                            label="Start"
                                                             value={form.startTime}
-                                                            onChange={e => setForm({ ...form, startTime: e.target.value })}
-                                                            className="w-full px-2 py-1.5 rounded-lg text-[11px] font-bold bg-black/30 border text-white focus:outline-none"
-                                                            style={{ borderColor: 'hsl(240 6% 20%)', colorScheme: 'dark' }}
+                                                            onChange={val => setForm({ ...form, startTime: val })}
                                                         />
-                                                        <input
-                                                            type="time"
-                                                            required
+                                                        <TimeInput
+                                                            label="End"
                                                             value={form.endTime}
-                                                            onChange={e => setForm({ ...form, endTime: e.target.value })}
-                                                            className="w-full px-2 py-1.5 rounded-lg text-[11px] font-bold bg-black/30 border text-white focus:outline-none"
-                                                            style={{ borderColor: 'hsl(240 6% 20%)', colorScheme: 'dark' }}
+                                                            onChange={val => setForm({ ...form, endTime: val })}
+                                                            align="left"
                                                         />
                                                     </div>
-                                                    <input
-                                                        placeholder="Room (optional)"
-                                                        value={form.room}
-                                                        onChange={e => setForm({ ...form, room: e.target.value })}
-                                                        className="w-full px-2 py-1.5 rounded-lg text-[11px] font-medium bg-black/30 border text-white focus:outline-none"
-                                                        style={{ borderColor: 'hsl(240 6% 20%)' }}
-                                                    />
+                                                    <div className="pt-1">
+                                                        <label className="text-[9px] font-black uppercase tracking-widest mb-1 block opacity-40 ml-1">Location</label>
+                                                        <input
+                                                            placeholder="Room (optional)"
+                                                            value={form.room}
+                                                            onChange={e => setForm({ ...form, room: e.target.value })}
+                                                            className="w-full px-3 py-2 rounded-xl text-[11px] font-medium bg-black/20 border text-white focus:outline-none transition-all"
+                                                            style={{ borderColor: "hsl(240 6% 20%)" }}
+                                                            onFocus={e => e.target.style.borderColor = "hsl(43 96% 56%)"}
+                                                            onBlur={e => e.target.style.borderColor = "hsl(240 6% 20%)"}
+                                                        />
+                                                    </div>
                                                     <div className="flex gap-1 pt-0.5">
                                                         <button
                                                             type="button"
@@ -520,3 +591,13 @@ export default function SubjectsPage() {
         </div>
     );
 }
+
+
+
+
+
+
+
+
+
+
