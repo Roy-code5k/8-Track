@@ -23,11 +23,31 @@ const STATUS_STYLE = {
 };
 
 // ─── Weekly Schedule Component ────────────────────────────────────────────────
-function WeeklySchedule() {
+function WeeklySchedule({ subjects = [] }) {
     const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [addingDay, setAddingDay] = useState(null);
     const [form, setForm] = useState({ subjectName: '', startTime: '', endTime: '', room: '' });
+
+    const handleSubjectNameChange = (val) => {
+        let newName = val;
+        let newStartTime = form.startTime;
+        let newEndTime = form.endTime;
+
+        // Try to detect time pattern like "09:30-10:45" or "9:30 - 10:45"
+        const timeRegex = /([01]?\d|2[0-3])[:.]([0-5]\d)\s*-\s*([01]?\d|2[0-3])[:.]([0-5]\d)/;
+        const match = val.match(timeRegex);
+
+        if (match) {
+            newStartTime = `${match[1].padStart(2, '0')}:${match[2]}`;
+            newEndTime = `${match[3].padStart(2, '0')}:${match[4]}`;
+
+            // Clean up the name (remove the time part)
+            newName = val.replace(timeRegex, '').trim();
+        }
+
+        setForm({ ...form, subjectName: newName, startTime: newStartTime, endTime: newEndTime });
+    };
 
     const { data, isLoading } = useQuery({
         queryKey: ['schedule'],
@@ -155,15 +175,21 @@ function WeeklySchedule() {
                                                 <form onSubmit={(e) => handleAddSlot(e, day)} className="space-y-1.5 mt-1 p-2 rounded-xl" style={{ background: 'hsl(240 6% 12%)', border: '1px solid hsl(240 6% 20%)' }}>
                                                     <input
                                                         autoFocus
-                                                        placeholder="Subject name*"
+                                                        placeholder="Subject name* (e.g. Maths 09:30-10:45)"
                                                         value={form.subjectName}
-                                                        onChange={e => setForm({ ...form, subjectName: e.target.value })}
+                                                        onChange={e => handleSubjectNameChange(e.target.value)}
+                                                        list="subject-suggestions"
                                                         required
                                                         className="w-full px-2 py-1.5 rounded-lg text-[11px] font-bold bg-black/30 border text-white focus:outline-none"
                                                         style={{ borderColor: 'hsl(240 6% 20%)' }}
                                                         onFocus={e => e.target.style.borderColor = 'hsl(43 96% 56%)'}
                                                         onBlur={e => e.target.style.borderColor = 'hsl(240 6% 20%)'}
                                                     />
+                                                    <datalist id="subject-suggestions">
+                                                        {subjects.map(s => (
+                                                            <option key={s._id} value={s.name} />
+                                                        ))}
+                                                    </datalist>
                                                     <div className="flex flex-col gap-1.5">
                                                         <input
                                                             type="time"
@@ -414,7 +440,7 @@ export default function SubjectsPage() {
             )}
 
             {/* ── Weekly Schedule Section ── */}
-            <WeeklySchedule />
+            <WeeklySchedule subjects={subjects} />
 
             {/* ── Modal ── */}
             {isAddModalOpen && (
