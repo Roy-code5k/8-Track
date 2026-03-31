@@ -53,27 +53,27 @@ app.use(errorHandler);
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
 
 // ── MongoDB connection ────────────────────────────────────────────────────────
 mongoose
-.connect(MONGO_URI, {
+  .connect(MONGO_URI, {
     serverSelectionTimeoutMS: 60000,
-})
-.then(() => {
-    console.log('✅ Connected to MongoDB Atlas');
-})
-.catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message);
-});
+  })
+  .then(() => {
+    console.log(' Connected to MongoDB Atlas');
+  })
+  .catch((err) => {
+    console.error(' MongoDB connection error:', err.message);
+  });
 
 // ── Process-level safety nets ─────────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {
-    console.error('🔴 Unhandled Rejection:', reason);
+  console.error(' Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (err) => {
-    console.error('💥 Uncaught Exception:', err.message);
-    process.exit(1);
+  console.error(' Uncaught Exception:', err.message);
+  process.exit(1);
 });

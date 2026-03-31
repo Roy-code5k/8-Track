@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const Otp = require('../models/Otp');
+const Otp = require('../models/OTP');
 const { sendOtpEmail } = require('../utils/emailService');
 
 const generateAccessToken = (id) =>
