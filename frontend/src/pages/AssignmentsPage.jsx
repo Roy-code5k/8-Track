@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     Plus, Filter, ChevronDown, 
     MoreHorizontal, Calendar, CheckCircle2, 
     Clock, AlertCircle, X, Check, ArrowRight, ArrowLeft,
-    Pencil, Trash2, MoreVertical
+    Pencil, Trash2, MoreVertical, GripVertical
 } from 'lucide-react';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import api from '../lib/api';
@@ -70,7 +70,7 @@ const PREV_STATUS = {
 
 // ─── Task Card Component ─────────────────────────────────────────────────────
 // ─── Task Card Component ─────────────────────────────────────────────────────
-function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
+function TaskCard({ task, onEdit, onDelete, onStatusChange, onDragStart }) {
     const rawName = task.subjectId?.name || 'General';
     const styling = getSubjectStyle(rawName);
     const dueDate = parseISO(task.dueDate);
@@ -86,18 +86,36 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
 
     const isCompleted = task.status === 'completed';
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     return (
-        <div className={`group relative bg-[var(--card-bg)] rounded-3xl p-6 border transition-all ${
-            isCompleted 
-                ? 'border-transparent opacity-60' 
-                : 'border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)] hover:shadow-xl'
+        <div 
+            draggable
+            onDragStart={(e) => {
+                setIsDragging(true);
+                e.dataTransfer.setData('taskId', task._id);
+                e.dataTransfer.setData('currentStatus', task.status);
+                e.dataTransfer.effectAllowed = 'move';
+                onDragStart?.();
+            }}
+            onDragEnd={() => setIsDragging(false)}
+            className={`group relative bg-[var(--card-bg)] rounded-3xl p-6 border transition-all cursor-grab active:cursor-grabbing select-none ${
+            isDragging
+                ? 'opacity-40 scale-95 border-[rgba(255,255,255,0.2)]'
+                : isCompleted 
+                    ? 'border-transparent opacity-60' 
+                    : 'border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)] hover:shadow-xl'
         }`}>
              {/* Side strip (Only for active tasks) */}
              {!isCompleted && (
                  <div className="absolute left-0 top-6 bottom-6 w-[4px] rounded-r-full shadow-[2px_0_12px_rgba(0,0,0,0.3)]" 
                     style={{ background: styling.color, boxShadow: `0 0 10px ${styling.color}44` }} />
              )}
+
+             {/* Drag grip handle */}
+             <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-30 transition-opacity text-white cursor-grab active:cursor-grabbing">
+                <GripVertical className="w-4 h-4" />
+             </div>
 
              {/* Task Card Menu */}
              <div className="absolute top-4 right-4 z-10">
@@ -127,7 +145,7 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
                 )}
              </div>
              
-             <div className="flex items-start justify-between mb-4 pr-6">
+             <div className="flex items-start justify-between mb-4 pr-6 pl-2">
                 <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase border ${
                     isCompleted 
                         ? 'bg-white/5 border-white/5 text-[var(--text-muted)]' 
@@ -146,7 +164,7 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange }) {
                 </div>
              </div>
 
-             <h3 className={`text-[15px] font-bold leading-snug mb-4 pr-4 ${
+             <h3 className={`text-[15px] font-bold leading-snug mb-4 pr-4 pl-2 ${
                 isCompleted ? 'text-[var(--text-muted)] line-through' : 'text-white'
              }`}>
                 {task.title}
@@ -198,6 +216,7 @@ export default function AssignmentsPage() {
     const [filter, setFilter] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+    const [dragOverCol, setDragOverCol] = useState(null); // which column is being hovered
 
 
     // ── Queries and Mutations ──
@@ -230,6 +249,45 @@ export default function AssignmentsPage() {
         },
         onError: (err) => showToast(err.response?.data?.message || 'Failed to delete assignment', 'error'),
     });
+
+    // ── Drag Handlers ──
+    const handleDragOver = (e, colId) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverCol(colId);
+    };
+
+    const handleDragLeave = (e) => {
+        // Only clear when leaving the column entirely (not its children)
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            setDragOverCol(null);
+        }
+    };
+
+    const handleDrop = (e, targetStatus) => {
+        e.preventDefault();
+        setDragOverCol(null);
+        const taskId = e.dataTransfer.getData('taskId');
+        const currentStatus = e.dataTransfer.getData('currentStatus');
+        if (!taskId || currentStatus === targetStatus) return;
+
+        const task = (assignmentsData || []).find(t => t._id === taskId);
+        if (!task) return;
+
+        // Optimistic update in cache
+        queryClient.setQueryData(['assignments'], (old) =>
+            old ? old.map(t => t._id === taskId ? { ...t, status: targetStatus } : t) : old
+        );
+
+        saveMutation.mutate({ ...task, status: targetStatus }, {
+            onError: () => {
+                // Roll back on error
+                queryClient.setQueryData(['assignments'], (old) =>
+                    old ? old.map(t => t._id === taskId ? { ...t, status: currentStatus } : t) : old
+                );
+            }
+        });
+    };
 
     // ── Column Data ──
     const tasks = assignmentsData || [];
@@ -265,13 +323,15 @@ export default function AssignmentsPage() {
     const handleFormSubmit = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
+        const rawSubjectId = fd.get('subjectId');
         const payload = {
             _id: editingTask?._id,
             title: fd.get('title'),
-            subjectId: fd.get('subjectId'),
             dueDate: fd.get('dueDate'),
             priority: fd.get('priority'),
-            status: fd.get('status')
+            status: fd.get('status'),
+            // Only send subjectId if it's a real value — empty string breaks Mongoose ObjectId cast
+            ...(rawSubjectId ? { subjectId: rawSubjectId } : {}),
         };
         saveMutation.mutate(payload);
     };
@@ -327,11 +387,18 @@ export default function AssignmentsPage() {
             {tasksLoading ? (
                  <div className="py-20 text-center animate-pulse text-[var(--text-muted)]">Syncing tasks...</div>
             ) : (
-                <div className="grid grid-cols-3 gap-8 items-start">
+                 <div className="grid grid-cols-3 gap-8 items-start">
                     {COLUMN_CONFIG.map(col => {
                         const colTasks = getTasksByStatus(col.id);
+                        const isDropTarget = dragOverCol === col.id;
                         return (
-                            <div key={col.id} className="space-y-6">
+                            <div 
+                                key={col.id} 
+                                className="space-y-6"
+                                onDragOver={(e) => handleDragOver(e, col.id)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, col.id)}
+                            >
                                 <div className="flex items-center justify-between px-2">
                                     <div className="flex items-center gap-3">
                                         <div className="w-2.5 h-2.5 rounded-full" 
@@ -341,7 +408,21 @@ export default function AssignmentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
+                                {/* Drop zone indicator */}
+                                <div className={`space-y-4 rounded-3xl transition-all duration-200 ${
+                                    isDropTarget 
+                                        ? 'ring-2 ring-offset-4 ring-offset-[var(--sidebar-bg)] p-3' 
+                                        : 'p-0'
+                                }`}
+                                style={isDropTarget ? { ringColor: col.color, boxShadow: `0 0 0 2px ${col.color}, 0 0 0 6px var(--sidebar-bg)` } : {}}>
+                                    {/* Drop hint when dragging over an empty column */}
+                                    {isDropTarget && colTasks.length === 0 && (
+                                        <div className="py-8 rounded-2xl border-2 border-dashed flex items-center justify-center text-[13px] font-bold transition-all"
+                                            style={{ borderColor: col.color, color: col.color, background: `${col.color}11` }}>
+                                            Drop here
+                                        </div>
+                                    )}
+
                                     {colTasks.map(task => (
                                         <TaskCard 
                                             key={task._id} 
@@ -353,12 +434,14 @@ export default function AssignmentsPage() {
                                     ))}
                                     
                                     {/* Empty State / Add Task Placeholder */}
-                                    <button 
-                                        onClick={() => openModal({ status: col.id })}
-                                        className="w-full py-10 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center gap-3 text-[var(--text-muted)] hover:border-[rgba(255,255,255,0.1)] hover:bg-white/5 transition-all group">
-                                        <Plus className="w-6 h-6 opacity-30 group-hover:opacity-100 transition-opacity" />
-                                        <span className="text-[13px] font-bold">Add Task</span>
-                                    </button>
+                                    {!isDropTarget && (
+                                        <button 
+                                            onClick={() => openModal({ status: col.id })}
+                                            className="w-full py-10 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center gap-3 text-[var(--text-muted)] hover:border-[rgba(255,255,255,0.1)] hover:bg-white/5 transition-all group">
+                                            <Plus className="w-6 h-6 opacity-30 group-hover:opacity-100 transition-opacity" />
+                                            <span className="text-[13px] font-bold">Add Task</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );
