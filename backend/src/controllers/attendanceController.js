@@ -3,9 +3,13 @@ const Subject = require('../models/Subject');
 const { calcPercentage, calcStatus, safeToMiss, recoveryNeeded } = require('../utils/prediction');
 
 const markAttendance = async (req, res, next) => {
-    const { subjectId, status, date } = req.body;
-    if (!subjectId || !status) {
-        return res.status(400).json({ message: 'subjectId and status are required' });
+    let { subjectId, status, date } = req.body;
+    if (!subjectId) {
+        return res.status(400).json({ message: 'subjectId is required' });
+    }
+
+    if (status !== 'present') {
+        status = 'absent';
     }
 
     try {
@@ -55,7 +59,10 @@ const getAttendanceHistory = async (req, res, next) => {
 };
 
 const updateAttendance = async (req, res, next) => {
-    const { status } = req.body;
+    let { status } = req.body;
+    if (status !== 'present') {
+        status = 'absent';
+    }
     try {
         const record = await Attendance.findOne({ _id: req.params.id, userId: req.user.id });
         if (!record) return res.status(404).json({ message: 'Record not found' });
