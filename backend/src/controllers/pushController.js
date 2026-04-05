@@ -40,5 +40,13 @@ const sendTestNotification = async (req, res, next) => {
         next(err);
     }
 };
+const unsubscribePush = async (req, res, next) => {
+    try {
+        await User.findByIdAndUpdate(req.user.id, { $unset: { pushSubscription: 1 } });
+        res.json({ message: 'Push subscription removed' });
+    } catch (err) {
+        next(err);
+    }
+};
 
-module.exports = { saveSubscription, sendTestNotification };
+module.exports = { saveSubscription, sendTestNotification, unsubscribePush };

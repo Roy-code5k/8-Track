@@ -27,12 +27,71 @@ import { useAuthStore } from '../store/authStore';
 
 export default function SettingsPage() {
     const user = useAuthStore((s) => s.user);
+    const updateUser = useAuthStore((s) => s.updateUser);
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'profile';
     const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState('all'); // all, read, unread
+
+    const urlBase64ToUint8Array = (base64String) => {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+    };
+
+    const handleEnablePush = async () => {
+        try {
+            if (!('serviceWorker' in navigator)) return showToast('Notifications not supported in this browser', 'error');
+            
+            // IF ALREADY ENABLED -> DISABLE IT
+            if (user?.pushSubscription) {
+                 const registration = await navigator.serviceWorker.ready;
+                 const subscription = await registration.pushManager.getSubscription();
+                 if (subscription) await subscription.unsubscribe();
+                 
+                 // Notify backend
+                 await api.delete('/push/unsubscribe').catch(() => {}); 
+                 updateUser({ pushSubscription: null });
+                 return showToast('System notifications disabled', 'info');
+            }
+
+            // IF DISABLED -> ENABLE IT
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                 return showToast('Notification permission was denied by your browser', 'error');
+            }
+
+            // Ensure SW is ready
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) {
+                 return showToast('Browser communication error. Please refresh the page.', 'error');
+            }
+
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array('BOFTEAR6miNWeLidfifbRztCeGK6DozslH877QJR6WlTduTNSklq4ZeKsMoDGN3LWsXqqIwiKTbrc_RhdfKhdl0'),
+            }).catch(e => {
+                 if (e.name === 'NotAllowedError') throw new Error('Notifications are blocked in your browser settings');
+                 if (e.name === 'InvalidCharacterError') throw new Error('Security key mismatch. Contact admin.');
+                 throw e;
+            });
+
+            // Save subscription to backend
+            await api.post('/push/subscribe', { subscription });
+            
+            // Sync with local store
+            updateUser({ pushSubscription: subscription });
+            showToast('System notifications active!', 'success');
+        } catch (err) {
+            console.error('Push operation failed:', err);
+            showToast(err.message || 'Something went wrong. Please refresh and try again.', 'error');
+        }
+    };
 
     const { data: notificationsData, isLoading } = useQuery({
         queryKey: ['notifications'],
@@ -118,15 +177,41 @@ export default function SettingsPage() {
                                         All your past alerts and messages
                                     </p>
                                 </div>
-                                {readCount > 0 && (
-                                    <button 
-                                        onClick={() => clearHistoryMutation.mutate()}
-                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-red-500 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                        Clear History
-                                    </button>
-                                )}
+                                <div className="flex items-center gap-3">
+                                     {readCount > 0 && (
+                                        <button 
+                                            onClick={() => clearHistoryMutation.mutate()}
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-red-500 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            Clear History
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* System Push Notifications Toggle */}
+                            <div className="p-6 rounded-3xl bg-[rgba(232,168,56,0.05)] border border-[rgba(232,168,56,0.1)] flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-[var(--active-highlight)] flex items-center justify-center text-[var(--primary-accent)]">
+                                        <Bell className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-white">System Push Notifications</h4>
+                                        <p className="text-[11px] font-medium text-[var(--text-muted)]">Receive alerts even when the app is closed</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => handleEnablePush()}
+                                    className="relative flex items-center group focus:outline-none"
+                                >
+                                    <div className={`w-12 h-6 rounded-full transition-all duration-300 border ${user?.pushSubscription ? 'bg-[var(--primary-accent)] border-[var(--primary-accent)]' : 'bg-black/40 border-white/10'}`}>
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 ${user?.pushSubscription ? 'left-7 bg-[var(--sidebar-bg)]' : 'left-1 bg-[var(--text-muted)]'}`} />
+                                    </div>
+                                    <span className="ml-3 text-[10px] font-black tracking-[0.2em] uppercase text-white/40 group-hover:text-white transition-colors">
+                                        {user?.pushSubscription ? 'Active' : 'Inactive'}
+                                    </span>
+                                </button>
                             </div>
 
                             {/* Filters Bar */}

@@ -1,4 +1,16 @@
+const webpush = require('web-push');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
+
+// Initialize VAPID
+const isValidVapidKey = (key) => key && key !== 'placeholder' && key.length > 20;
+if (isValidVapidKey(process.env.VAPID_PUBLIC_KEY) && isValidVapidKey(process.env.VAPID_PRIVATE_KEY)) {
+    webpush.setVapidDetails(
+        process.env.VAPID_EMAIL || 'mailto:admin@8track.app',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+}
 
 const getNotifications = async (req, res, next) => {
     try {
@@ -59,7 +71,25 @@ const clearHistory = async (req, res, next) => {
 // System function to create notifications (not exported as route)
 const createNotification = async (userId, title, message, type = 'info', link = '/') => {
     try {
-        return await Notification.create({ userId, title, message, type, link });
+        const notif = await Notification.create({ userId, title, message, type, link });
+
+        // Trigger Real-Time Push Notification
+        const user = await User.findById(userId);
+        if (user?.pushSubscription) {
+            try {
+                await webpush.sendNotification(
+                    user.pushSubscription,
+                    JSON.stringify({ title, body: message, link })
+                );
+            } catch (pushErr) {
+                console.error('Web Push failed:', pushErr.message);
+                if (pushErr.statusCode === 410) {
+                    // Subscription expired/invalid -> remove it
+                    await User.findByIdAndUpdate(userId, { $unset: { pushSubscription: 1 } });
+                }
+            }
+        }
+        return notif;
     } catch (err) {
         console.error('Failed to create notification:', err.message);
     }
