@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: '24.x'
+          node-version: '20.x'
 
       - name: npm install, build, and test
         working-directory: ./backend
@@ -57,6 +57,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: '8track'
+          app-name: '8track-ebdbakegd0aqetc6'
           slot-name: 'Production'
           package: .
