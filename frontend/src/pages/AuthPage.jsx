@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Eye, EyeOff } from 'lucide-react';
@@ -532,17 +532,13 @@ function AuthPage() {
                         {/* Terms */}
                         <p className="text-xs text-center mt-6" style={{ color: '#8A8A95' }}>
                             By continuing, you agree to our{' '}
-                            <span className="cursor-pointer transition-all" style={{ color: '#8A8A95', textDecoration: 'none' }}
-                                onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                                onMouseLeave={(e) => e.target.style.textDecoration = 'none'}>
+                            <Link to="/terms" className="cursor-pointer transition-all hover:text-white hover:underline" style={{ color: '#8A8A95' }}>
                                 Terms
-                            </span>
+                            </Link>
                             {' '}and{' '}
-                            <span className="cursor-pointer transition-all" style={{ color: '#8A8A95', textDecoration: 'none' }}
-                                onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                                onMouseLeave={(e) => e.target.style.textDecoration = 'none'}>
+                            <Link to="/privacy" className="cursor-pointer transition-all hover:text-white hover:underline" style={{ color: '#8A8A95' }}>
                                 Privacy Policy
-                            </span>.
+                            </Link>.
                         </p>
                         </>
                     )}
