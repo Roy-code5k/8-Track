@@ -57,6 +57,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: '8track-ebdbakegd0aqetc6'
+          app-name: '8track'
           slot-name: 'Production'
           package: .
