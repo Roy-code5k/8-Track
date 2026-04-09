@@ -358,30 +358,77 @@ export default function SettingsPage() {
                     {activeTab === 'privacy' && (
                         <div className="p-10 text-center space-y-4">
                              <FileText className="w-16 h-16 text-[var(--primary-accent)] mx-auto opacity-20" />
-                             <h3 className="text-xl font-bold text-white">Privacy Policies</h3>
-                             <p className="text-sm font-medium text-[var(--text-muted)] mb-8">How we handle and protect your data</p>
-                             <div className="max-w-md mx-auto space-y-4">
-                                 <div className="p-6 rounded-3xl bg-[rgba(255,255,255,0.01)] border border-[var(--active-highlight)] text-left space-y-4">
-                                     <div className="flex items-center gap-3">
-                                         <Calendar className="w-5 h-5 text-blue-400" />
-                                         <p className="text-sm font-bold text-white">Google Calendar API Usage</p>
+                             <h3 className="text-xl font-bold text-white">Privacy Policy</h3>
+                             <p className="text-sm font-medium text-[var(--text-muted)] mb-8">How 8Track handles and protects your data</p>
+                             <div className="max-w-2xl mx-auto space-y-4">
+                                 <div className="p-8 rounded-3xl bg-[rgba(255,255,255,0.01)] border border-[var(--active-highlight)] text-left space-y-6">
+                                     <div className="border-b border-white/5 pb-4">
+                                        <p className="text-xs font-bold text-[var(--primary-accent)] uppercase tracking-widest mb-1">Effective Date: April 9, 2026</p>
+                                        <p className="text-[12px] font-medium text-[var(--text-muted)] mt-2">
+                                            8Track (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is a personal academic productivity application that helps college students manage attendance, assignments, exams, and schedules. This Privacy Policy describes how we collect, use, store, and protect your information when you use our application and services.
+                                        </p>
                                      </div>
-                                     <div className="space-y-3 text-[12px] font-medium text-[var(--text-muted)] leading-relaxed">
+
+                                     <div className="space-y-5 text-[12px] font-medium text-[var(--text-muted)] leading-relaxed">
                                          <div>
-                                            <span className="text-white/80 font-bold block mb-0.5">Data Collected</span>
-                                            We link your Google Calendar Account to sync events. We do not access or collect any other Google data.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">1. Information We Collect</span>
+                                            <ul className="list-disc pl-4 space-y-1 mt-1">
+                                                <li><span className="text-white/80 font-bold">Account Information</span> — your name, email address, and securely hashed password when you register.</li>
+                                                <li><span className="text-white/80 font-bold">Academic Data</span> — subjects, attendance records, assignment details, and exam schedules you create within the app.</li>
+                                                <li><span className="text-white/80 font-bold">Google Calendar Data</span> — if you choose to connect your Google account, we access your calendar events solely to display upcoming classes, assignments, and exams within the 8Track dashboard. We do not access contacts, emails, files, or any other Google service data.</li>
+                                                <li><span className="text-white/80 font-bold">Authentication Tokens</span> — OAuth 2.0 access and refresh tokens issued by Google, used exclusively to sync your calendar data.</li>
+                                            </ul>
                                          </div>
                                          <div>
-                                            <span className="text-white/80 font-bold block mb-0.5">Purpose of Collection</span>
-                                            This data is collected specifically to show your upcoming assignments, exams, and classes directly within the 8Track dashboard.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">2. How We Use Your Information</span>
+                                            <ul className="list-disc pl-4 space-y-1 mt-1">
+                                                <li>Displaying your academic schedule, attendance predictions, and assignment deadlines.</li>
+                                                <li>Syncing calendar events from Google Calendar to your 8Track dashboard.</li>
+                                                <li>Creating calendar events on your behalf when you add assignments or exams (only with your explicit permission).</li>
+                                                <li>Authenticating your identity and maintaining your session securely.</li>
+                                            </ul>
                                          </div>
                                          <div>
-                                            <span className="text-white/80 font-bold block mb-0.5">Data Storage</span>
-                                            Tokens and calendar data are processed temporarily for syncing. They are protected with industry-standard encryption, and refresh tokens are kept secure.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">3. Google Calendar API — Limited Use Disclosure</span>
+                                            <p className="mb-1">8Track&apos;s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-[var(--primary-accent)] hover:underline">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+                                            <ul className="list-disc pl-4 space-y-1 mt-1">
+                                                <li>We only request the minimum scopes necessary to read and create calendar events.</li>
+                                                <li>We do not use Google data for advertising, marketing, or profiling purposes.</li>
+                                                <li>We do not sell, lease, or share Google user data with any third party.</li>
+                                                <li>We do not allow humans to read your Google data unless you provide explicit consent, it is required for security purposes, or it is required by law.</li>
+                                            </ul>
                                          </div>
                                          <div>
-                                            <span className="text-white/80 font-bold block mb-0.5">Data Deletion</span>
-                                            You can remove access at any time by unlinking your Google Account from your Google Account Security settings, or by contacting our admin to delete your 8Track account.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">4. Data Storage and Security</span>
+                                            Your account and academic data are stored in a secure MongoDB database. All communication between your browser and our servers occurs over HTTPS. Passwords are hashed using bcrypt and are never stored in plaintext. OAuth tokens are encrypted at rest, processed only for calendar synchronization, and are never exposed to the frontend.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">5. Data Sharing</span>
+                                            We do not sell, rent, trade, or share your personal data with any third parties. Your data is used solely to operate the 8Track application. We may disclose information only if required to do so by law or to protect the rights, safety, or property of our users.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">6. Data Retention and Deletion</span>
+                                            We retain your data for as long as your account is active. You may request deletion of your account and all associated data at any time by contacting us. To revoke Google Calendar access, disconnect 8Track from your Google Account at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-[var(--primary-accent)] hover:underline">myaccount.google.com/permissions</a>. Upon revocation, all stored Google tokens are deleted immediately.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">7. Third-Party Services</span>
+                                            <ul className="list-disc pl-4 space-y-1 mt-1">
+                                                <li><span className="text-white/80 font-bold">Google Calendar API</span> — for calendar synchronization as described above.</li>
+                                                <li><span className="text-white/80 font-bold">Vercel</span> — for hosting and serverless deployment.</li>
+                                                <li><span className="text-white/80 font-bold">MongoDB Atlas</span> — for secure cloud database storage.</li>
+                                            </ul>
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">8. Children&apos;s Privacy</span>
+                                            8Track is designed for college students and is not intended for use by children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware of such data, we will delete it promptly.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">9. Changes to This Policy</span>
+                                            We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated effective date. Continued use of 8Track after changes constitutes acceptance of the revised policy.
+                                         </div>
+                                         <div className="pt-4 border-t border-white/5">
+                                            <span className="text-white font-bold block mb-1 text-[13px]">10. Contact Us</span>
+                                            If you have questions about this Privacy Policy or wish to request data deletion, contact us at <a href="mailto:hriturajroy3@gmail.com" className="text-[var(--primary-accent)] hover:underline">hriturajroy3@gmail.com</a>.
                                          </div>
                                      </div>
                                  </div>
@@ -397,39 +444,67 @@ export default function SettingsPage() {
                              <div className="max-w-2xl mx-auto space-y-4">
                                  <div className="p-8 rounded-3xl bg-[rgba(255,255,255,0.01)] border border-[var(--active-highlight)] text-left space-y-6">
                                      <div className="border-b border-white/5 pb-4">
-                                        <p className="text-xs font-bold text-[var(--primary-accent)] uppercase tracking-widest mb-1">Effective Date: {format(new Date(), 'MMMM d, yyyy')}</p>
-                                        <h4 className="text-lg font-bold text-white">Welcome to 8Track.</h4>
-                                        <p className="text-[12px] font-medium text-[var(--text-muted)] mt-2">By using this application, you agree to the following terms:</p>
+                                        <p className="text-xs font-bold text-[var(--primary-accent)] uppercase tracking-widest mb-1">Effective Date: April 9, 2026</p>
+                                        <p className="text-[12px] font-medium text-[var(--text-muted)] mt-2">
+                                            These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of 8Track, a personal academic management application. By creating an account or using 8Track, you agree to be bound by these Terms. If you do not agree, please do not use the application.
+                                        </p>
                                      </div>
 
                                      <div className="space-y-5 text-[12px] font-medium text-[var(--text-muted)] leading-relaxed">
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">1. Use of Service</span>
-                                            This app is intended for personal productivity, including task management, Pomodoro tracking, and calendar integration.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">1. Description of Service</span>
+                                            8Track is a Progressive Web App designed for college students to manage academic tasks including attendance tracking, assignment management, exam scheduling, Pomodoro-based focus sessions, and optional Google Calendar synchronization. The service is provided free of charge and is intended solely for personal, non-commercial academic use.
                                          </div>
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">2. User Responsibilities</span>
-                                            You are responsible for maintaining the confidentiality of your account and ensuring that your usage complies with applicable laws.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">2. Eligibility</span>
+                                            You must be at least 13 years of age to use 8Track. By using the application, you represent and warrant that you meet this age requirement and have the legal capacity to enter into these Terms.
                                          </div>
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">3. Google Calendar Integration</span>
-                                            If you connect your Google account, we may create calendar events on your behalf. We do not access or modify your calendar beyond what is necessary for this functionality.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">3. Account Registration and Security</span>
+                                            To access 8Track, you must create an account with a valid email address and password. You are responsible for maintaining the confidentiality of your login credentials and for all activity that occurs under your account. You agree to notify us immediately of any unauthorized use of your account.
                                          </div>
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">4. Data Usage</span>
-                                            We store your data securely and do not sell or share your personal data with third parties.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">4. Acceptable Use</span>
+                                            <p className="mb-1">You agree to use 8Track only for its intended purpose of personal academic management. You shall not:</p>
+                                            <ul className="list-disc pl-4 space-y-1 mt-1">
+                                                <li>Attempt to gain unauthorized access to the application, its servers, or databases.</li>
+                                                <li>Use the application to store, transmit, or distribute malicious content.</li>
+                                                <li>Reverse-engineer, decompile, or disassemble any part of the application.</li>
+                                                <li>Use automated systems (bots, scrapers) to interact with the service.</li>
+                                                <li>Violate any applicable local, national, or international law while using 8Track.</li>
+                                            </ul>
                                          </div>
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">5. Limitation of Liability</span>
-                                            We are not responsible for any data loss, missed reminders, or service interruptions.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">5. Google Calendar Integration</span>
+                                            8Track offers optional integration with Google Calendar. If you connect your Google account, you authorize 8Track to read your calendar events and create new events on your behalf for academic scheduling purposes. 8Track will not access or modify your calendar beyond what is strictly necessary to provide this functionality. You may revoke this access at any time through your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-[var(--primary-accent)] hover:underline">Google Account permissions</a>.
                                          </div>
                                          <div>
-                                            <span className="text-white font-bold block mb-1 text-[13px]">6. Changes to Terms</span>
-                                            We may update these terms from time to time.
+                                            <span className="text-white font-bold block mb-1 text-[13px]">6. Intellectual Property</span>
+                                            All content, design, code, and branding associated with 8Track are the property of the 8Track team. You retain ownership of any personal data and academic information you enter into the application. By using 8Track, you grant us a limited license to process your data solely for the purpose of delivering the service.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">7. Data Usage and Privacy</span>
+                                            Your use of 8Track is also governed by our Privacy Policy, which describes how we collect, use, and protect your information. We store your data securely, do not sell or share your personal data with third parties, and do not use your data for advertising or profiling.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">8. Service Availability and Modifications</span>
+                                            We strive to keep 8Track available and reliable, but we do not guarantee uninterrupted access. We reserve the right to modify, suspend, or discontinue any part of the service at any time, with or without notice. We will make reasonable efforts to notify users of significant changes.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">9. Limitation of Liability</span>
+                                            8Track is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. To the fullest extent permitted by law, we disclaim all warranties, express or implied. We are not liable for any data loss, missed deadlines, incorrect attendance predictions, service interruptions, or any indirect, incidental, or consequential damages arising from your use of the application.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">10. Account Termination</span>
+                                            You may delete your account at any time by contacting us. We reserve the right to suspend or terminate accounts that violate these Terms. Upon termination, your data will be deleted in accordance with our Privacy Policy.
+                                         </div>
+                                         <div>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">11. Changes to These Terms</span>
+                                            We may update these Terms from time to time. Changes will be posted on this page with an updated effective date. Your continued use of 8Track after any modification constitutes acceptance of the revised Terms.
                                          </div>
                                          <div className="pt-4 border-t border-white/5">
-                                            <span className="text-white font-bold block mb-1 text-[13px]">7. Contact</span>
-                                            For support, contact: <a href="mailto:hriturajroy3@gmail.com" className="text-[var(--primary-accent)] hover:underline">hriturajroy3@gmail.com</a>
+                                            <span className="text-white font-bold block mb-1 text-[13px]">12. Contact</span>
+                                            For questions or concerns regarding these Terms, reach out to us at <a href="mailto:hriturajroy3@gmail.com" className="text-[var(--primary-accent)] hover:underline">hriturajroy3@gmail.com</a>.
                                          </div>
                                      </div>
                                  </div>
