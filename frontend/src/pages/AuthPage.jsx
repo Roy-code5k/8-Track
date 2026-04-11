@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Eye, EyeOff } from 'lucide-react';
@@ -183,7 +183,9 @@ function AuthPage() {
     const [pendingEmail, setPendingEmail] = useState('');
     const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
     const [resendTimer, setResendTimer] = useState(0);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const setAuth = useAuthStore((s) => s.setAuth);
 
     const { register, handleSubmit, formState: { errors }, reset, watch, getValues } = useForm();
@@ -275,6 +277,25 @@ function AuthPage() {
     const error = loginMutation.error?.response?.data?.message ||
                   sendOtpMutation.error?.response?.data?.message ||
                   verifyOtpMutation.error?.response?.data?.message;
+
+    // Map Google OAuth error codes from URL params to user-friendly messages
+    const googleErrorParam = searchParams.get('error');
+    const googleErrorMsg =
+        googleErrorParam === 'google_cancelled'   ? 'Google sign-in was cancelled.' :
+        googleErrorParam === 'google_no_email'    ? 'Your Google account did not provide an email address.' :
+        googleErrorParam === 'google_failed'      ? 'Google sign-in failed. Please try again.' :
+        googleErrorParam === 'google_auth_cancelled' ? 'Google sign-in was cancelled.' :
+        null;
+
+    const handleGoogleSignIn = async () => {
+        try {
+            setGoogleLoading(true);
+            const { data } = await api.get('/auth/google');
+            window.location.href = data.url;
+        } catch {
+            setGoogleLoading(false);
+        }
+    };
 
     const handleTabChange = (newTab) => {
         setTab(newTab);
@@ -497,10 +518,10 @@ function AuthPage() {
                                 </div>
                             )}
 
-                            {error && (
+                            {(error || googleErrorMsg) && (
                                 <div className="px-4 py-2.5 rounded-lg text-sm text-red-400"
                                     style={{ background: 'hsl(0 72% 51% / 0.1)', border: '1px solid hsl(0 72% 51% / 0.2)' }}>
-                                    {error}
+                                    {error || googleErrorMsg}
                                 </div>
                             )}
 
@@ -521,12 +542,24 @@ function AuthPage() {
                         </div>
 
                         {/* Continue with Google */}
-                        <button type="button"
-                            className="w-full flex items-center justify-center gap-3 py-3 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                        <button
+                            type="button"
+                            id="google-signin-btn"
+                            onClick={handleGoogleSignIn}
+                            disabled={googleLoading}
+                            className="w-full flex items-center justify-center gap-3 py-3 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-60"
                             style={{ background: '#1C1C1F', border: '1px solid #2A2A2E', color: '#F0EEE8' }}
                         >
-                            <GoogleIcon />
-                            Continue with Google
+                            {googleLoading ? (
+                                <svg width="18" height="18" viewBox="0 0 18 18" style={{ animation: 'spin 0.9s linear infinite' }}>
+                                    <circle cx="9" cy="9" r="7" stroke="#3A3A42" strokeWidth="2.5" fill="none" />
+                                    <path d="M9 2 A7 7 0 0 1 16 9" stroke="#F0A830" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                </svg>
+                            ) : (
+                                <GoogleIcon />
+                            )}
+                            {googleLoading ? 'Redirecting to Google…' : 'Continue with Google'}
                         </button>
 
                         {/* Terms */}

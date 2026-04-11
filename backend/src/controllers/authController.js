@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { google } = require('googleapis');
 const User = require('../models/User');
 const Otp = require('../models/OTP');
 const { sendOtpEmail } = require('../utils/emailService');
@@ -278,4 +279,96 @@ const verifyOtpAndRegister = async (req, res, next) => {
     }
 };
 
-module.exports = { register, login, refreshToken, logout, getProfile, updateProfile, sendOtp, verifyOtpAndRegister };
+// ─── Google OAuth Login helpers ───────────────────────────────────────────────
+function buildLoginOAuth2Client() {
+    return new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_OAUTH_LOGIN_REDIRECT_URI,
+    );
+}
+
+// GET /api/auth/google — returns the Google consent URL
+const googleAuthUrl = (req, res) => {
+    const oauth2Client = buildLoginOAuth2Client();
+    const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'select_account',
+        scope: [
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/userinfo.email',
+        ],
+    });
+    res.json({ url });
+};
+
+// GET /api/auth/google/callback — handles the redirect from Google
+const googleCallback = async (req, res, next) => {
+    const { code, error } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    if (error || !code) {
+        return res.redirect(`${frontendUrl}/auth?error=google_cancelled`);
+    }
+
+    try {
+        const oauth2Client = buildLoginOAuth2Client();
+        const { tokens } = await oauth2Client.getToken(code);
+        oauth2Client.setCredentials(tokens);
+
+        // Fetch the user's Google profile
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+        const { data: profile } = await oauth2.userinfo.get();
+        // profile: { id, email, name, picture, ... }
+
+        const { id: googleId, email, name } = profile;
+
+        if (!email) {
+            return res.redirect(`${frontendUrl}/auth?error=google_no_email`);
+        }
+
+        // Find by googleId first, then fall back to email (to link existing accounts)
+        let user = await User.findOne({ googleId });
+        if (!user) {
+            user = await User.findOne({ email });
+        }
+
+        if (user) {
+            // Link googleId if not already set
+            if (!user.googleId) {
+                user.googleId = googleId;
+                await user.save();
+            }
+        } else {
+            // Create a new Google-only account (no password)
+            user = await User.create({ name, email, googleId });
+        }
+
+        const accessToken = generateAccessToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
+
+        user.refreshToken = refreshToken;
+        await user.save();
+
+        setRefreshCookie(res, refreshToken);
+
+        // Redirect to frontend callback page with access token in query
+        const userPayload = encodeURIComponent(JSON.stringify({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            institution: user.institution,
+            branch: user.branch,
+            semester: user.semester,
+        }));
+
+        return res.redirect(
+            `${frontendUrl}/auth/google/callback?token=${accessToken}&user=${userPayload}`
+        );
+    } catch (err) {
+        console.error('Google login callback error:', err.message);
+        return res.redirect(`${frontendUrl}/auth?error=google_failed`);
+    }
+};
+
+module.exports = { register, login, refreshToken, logout, getProfile, updateProfile, sendOtp, verifyOtpAndRegister, googleAuthUrl, googleCallback };

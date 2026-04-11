@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore';
 import AuthPage from './pages/AuthPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
+import GoogleCallbackPage from './pages/GoogleCallbackPage';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { ToastProvider } from './components/common/Toast';
@@ -26,6 +27,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route

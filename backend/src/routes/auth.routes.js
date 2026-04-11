@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, refreshToken, logout, getProfile, updateProfile, sendOtp, verifyOtpAndRegister } = require('../controllers/authController');
+const { register, login, refreshToken, logout, getProfile, updateProfile, sendOtp, verifyOtpAndRegister, googleAuthUrl, googleCallback } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -12,5 +12,9 @@ router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
+
+// Google OAuth login
+router.get('/google', googleAuthUrl);
+router.get('/google/callback', googleCallback);
 
 module.exports = router;
