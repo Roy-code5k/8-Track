@@ -7,7 +7,7 @@ export default function TermsPage() {
         <div className="min-h-screen bg-[var(--bg-color)] text-white p-8 py-16 flex justify-center">
             <div className="max-w-3xl w-full">
                 <div className="flex items-center justify-between mb-8">
-                    <Link to="/auth" className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--primary-accent)] transition-colors">
+                    <Link to="/" className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--primary-accent)] transition-colors">
                         ← Back to Home
                     </Link>
                 </div>
