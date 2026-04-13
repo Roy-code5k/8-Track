@@ -41,12 +41,12 @@ const register = async (req, res, next) => {
         const user = await User.create({ name, email, password, institution, branch, semester });
 
         const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const newRefreshToken = generateRefreshToken(user.id);
 
-        user.refreshToken = refreshToken;
+        user.refreshToken = newRefreshToken;
         await user.save();
 
-        setRefreshCookie(res, refreshToken);
+        setRefreshCookie(res, newRefreshToken);
 
         return res.status(201).json({
             accessToken,
@@ -84,12 +84,12 @@ const login = async (req, res, next) => {
         }
 
         const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const newRefreshToken = generateRefreshToken(user.id);
 
-        user.refreshToken = refreshToken;
+        user.refreshToken = newRefreshToken;
         await user.save();
 
-        setRefreshCookie(res, refreshToken);
+        setRefreshCookie(res, newRefreshToken);
 
         return res.json({
             accessToken,
@@ -172,8 +172,8 @@ const updateProfile = async (req, res, next) => {
             { new: true, runValidators: true }
         ).select('-password -refreshToken');
         res.json({ user });
-    } catch {
-        res.status(500).json({ message: 'Failed to update profile' });
+    } catch (err) {
+        return next(err);
     }
 };
 
@@ -252,12 +252,12 @@ const verifyOtpAndRegister = async (req, res, next) => {
         const user = await User.create({ name, email, password, institution, branch, semester });
 
         const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const newRefreshToken = generateRefreshToken(user.id);
 
-        user.refreshToken = refreshToken;
+        user.refreshToken = newRefreshToken;
         await user.save();
 
-        setRefreshCookie(res, refreshToken);
+        setRefreshCookie(res, newRefreshToken);
 
         // Cleanup the OTP record
         await Otp.deleteOne({ email });
@@ -345,12 +345,12 @@ const googleCallback = async (req, res, next) => {
         }
 
         const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const newRefreshToken = generateRefreshToken(user.id);
 
-        user.refreshToken = refreshToken;
+        user.refreshToken = newRefreshToken;
         await user.save();
 
-        setRefreshCookie(res, refreshToken);
+        setRefreshCookie(res, newRefreshToken);
 
         // Redirect to frontend callback page with access token in query
         const userPayload = encodeURIComponent(JSON.stringify({
