@@ -1,8 +1,39 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Plus, CheckCircle2, AlertCircle, XCircle, Trash2, Edit2, X, CalendarX, Clock, CalendarCheck, RefreshCw, Unlink, ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
 import api from '../lib/api';
 import { useToast } from '../components/common/Toast';
+
+// ─── Week Helpers (mirrors backend logic) ─────────────────────────────────────
+function getMondayOfWeek(date = new Date()) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function getActiveWeekMonday() {
+    const today = new Date();
+    const day = today.getDay();
+    if (day === 6) {
+        // Saturday → show upcoming week
+        const next = getMondayOfWeek(today);
+        next.setDate(next.getDate() + 7);
+        return next;
+    }
+    return getMondayOfWeek(today);
+}
+
+// Given the Monday anchor and a day name, return the specific Date for that day
+const DAY_OFFSET = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
+function getDateForDay(mondayAnchor, dayName) {
+    const d = new Date(mondayAnchor);
+    d.setDate(d.getDate() + DAY_OFFSET[dayName]);
+    return d;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const SUBJECT_COLORS = ['#3b82f6', '#f97316', '#ef4444', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
@@ -162,17 +193,36 @@ function WeeklySchedule({ subjects = [] }) {
 
     const schedule = data || [];
 
+    const weekMonday = getActiveWeekMonday();
+    const weekSunday = new Date(weekMonday);
+    weekSunday.setDate(weekSunday.getDate() + 6);
+    const isCurrentWeekSaturday = new Date().getDay() === 6;
+
     return (
         <div className="mt-10">
             {/* Section Header */}
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Clock className="w-6 h-6" style={{ color: 'hsl(43 96% 56%)' }} />
-                    Set Weekly Schedule
-                </h2>
-                <p className="text-sm mt-1" style={{ color: 'hsl(240 5% 50%)' }}>
-                    Define your recurring class timetable for each day of the week.
-                </p>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                            <Clock className="w-6 h-6" style={{ color: 'hsl(43 96% 56%)' }} />
+                            Weekly Schedule
+                        </h2>
+                        <p className="text-sm mt-1" style={{ color: 'hsl(240 5% 50%)' }}>
+                            Your class schedule is specific to this week and resets every Saturday.
+                        </p>
+                    </div>
+                    {/* Week Range Badge */}
+                    <div className="flex-shrink-0 px-4 py-2 rounded-xl border text-center"
+                        style={{ background: isCurrentWeekSaturday ? 'rgba(232,168,56,0.08)' : 'hsl(240 6% 12%)', borderColor: isCurrentWeekSaturday ? 'rgba(232,168,56,0.3)' : 'hsl(240 6% 20%)' }}>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: isCurrentWeekSaturday ? 'hsl(43 96% 56%)' : 'hsl(240 5% 50%)' }}>
+                            {isCurrentWeekSaturday ? '⚡ Upcoming Week' : 'Current Week'}
+                        </p>
+                        <p className="text-xs font-bold text-white">
+                            {format(weekMonday, 'MMM d')} – {format(weekSunday, 'MMM d, yyyy')}
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {isLoading ? (
@@ -198,9 +248,14 @@ function WeeklySchedule({ subjects = [] }) {
                                     className="px-3 py-2.5 flex items-center justify-between"
                                     style={{ background: isHoliday ? 'rgba(232,92,92,0.12)' : 'hsl(240 6% 12%)' }}
                                 >
-                                    <span className="text-[13px] font-black tracking-widest uppercase" style={{ color: isHoliday ? '#E85C5C' : 'white' }}>
-                                        {DAY_SHORT[day]}
-                                    </span>
+                                    <div className="flex flex-col">
+                                        <span className="text-[13px] font-black tracking-widest uppercase leading-tight" style={{ color: isHoliday ? '#E85C5C' : 'white' }}>
+                                            {DAY_SHORT[day]}
+                                        </span>
+                                        <span className="text-[10px] font-semibold" style={{ color: isHoliday ? 'hsl(0 50% 55%)' : 'hsl(240 5% 40%)' }}>
+                                            {format(getDateForDay(weekMonday, day), 'MMM d')}
+                                        </span>
+                                    </div>
                                     <button
                                         onClick={() => toggleHolidayMutation.mutate({ day, isHoliday: !isHoliday })}
                                         title={isHoliday ? 'Unmark holiday' : 'Mark as holiday'}

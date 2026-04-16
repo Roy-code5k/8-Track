@@ -1,27 +1,26 @@
-import { google  } from 'googleapis';
+import { google } from 'googleapis';
 import User from '../models/User.js';
 import Schedule from '../models/Schedule.js';
+import { getActiveWeekOf } from './scheduleController.js';
 
-// ── Day name to RRule BYDAY code ─────────────────────────────────────────────
-const DAY_TO_RRULE = {
-    Monday:    'MO',
-    Tuesday:   'TU',
-    Wednesday: 'WE',
-    Thursday:  'TH',
-    Friday:    'FR',
-    Saturday:  'SA',
-    Sunday:    'SU',
+// Day name → offset from Monday (0=Mon, 1=Tue, … 6=Sun)
+const DAY_OFFSET = {
+    Monday:    0,
+    Tuesday:   1,
+    Wednesday: 2,
+    Thursday:  3,
+    Friday:    4,
+    Saturday:  5,
+    Sunday:    6,
 };
 
-// ── ISO date string for the NEXT occurrence of a given weekday ────────────────
-// Google Calendar needs a concrete start date for a recurring event.
-// We find the upcoming date (or today if it matches) for `dayName`.
-function nextWeekdayDate(dayName) {
-    const target = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
-        .indexOf(dayName);
-    const d = new Date();
-    const diff = (target - d.getDay() + 7) % 7;
-    d.setDate(d.getDate() + diff);
+/**
+ * Given the weekOf (a Monday date) and a day name, return the exact Date
+ * for that specific day in that week.
+ */
+function getExactDate(weekOf, dayName) {
+    const d = new Date(weekOf);
+    d.setDate(d.getDate() + DAY_OFFSET[dayName]);
     return d;
 }
 
@@ -106,8 +105,9 @@ const disconnect = async (req, res) => {
 };
 
 // ── POST /api/google/sync ─────────────────────────────────────────────────────
-// Reads the user's 8-Track schedule and creates/replaces recurring events
-// in their Google Calendar for each class slot.
+// Reads the user's 8-Track schedule for the ACTIVE WEEK and creates single
+// (non-recurring) events in their Google Calendar for each class slot.
+// Events are only for this specific week — no recurring rules applied.
 const syncSchedule = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('googleTokens');
@@ -127,8 +127,14 @@ const syncSchedule = async (req, res) => {
 
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-        // Fetch schedule from DB
-        const scheduleDocs = await Schedule.find({ userId: req.user._id });
+        // Fetch schedule for the active week only
+        const weekOf = getActiveWeekOf();
+        const scheduleDocs = await Schedule.find({ userId: req.user._id, weekOf });
+
+        // Compute the week range label for the event description
+        const weekEnd = new Date(weekOf);
+        weekEnd.setDate(weekEnd.getDate() + 6); // Sunday of this week
+        const weekLabel = `${weekOf.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} – ${weekEnd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 
         let created = 0;
         let skipped = 0;
@@ -139,24 +145,24 @@ const syncSchedule = async (req, res) => {
                 continue;
             }
 
-            const rruleDay = DAY_TO_RRULE[dayDoc.day];
-            const baseDate = nextWeekdayDate(dayDoc.day); // e.g., next Monday's date
+            // Get the exact calendar date for this slot (e.g. specific Monday, specific Tuesday)
+            const exactDate = getExactDate(weekOf, dayDoc.day);
 
             for (const slot of dayDoc.slots) {
                 const [startHour, startMin] = slot.startTime.split(':').map(Number);
                 const [endHour, endMin]     = slot.endTime.split(':').map(Number);
 
-                // Build Date objects for the event's start/end on the target day
-                const startDate = new Date(baseDate);
+                // Build Date objects for the event's start/end on the exact day
+                const startDate = new Date(exactDate);
                 startDate.setHours(startHour, startMin, 0, 0);
 
-                const endDate = new Date(baseDate);
+                const endDate = new Date(exactDate);
                 endDate.setHours(endHour, endMin, 0, 0);
 
                 const event = {
                     summary: slot.subjectName,
                     location: slot.room || '',
-                    description: `Class synced from 8-Track on ${new Date().toLocaleDateString()}`,
+                    description: `Class synced from 8-Track | Week of ${weekLabel} | Synced on ${new Date().toLocaleDateString('en-IN')}`,
                     start: {
                         dateTime: startDate.toISOString(),
                         timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
@@ -165,10 +171,7 @@ const syncSchedule = async (req, res) => {
                         dateTime: endDate.toISOString(),
                         timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
                     },
-                    recurrence: [
-                        // Recurs every week on this day, ending at the end of the year
-                        `RRULE:FREQ=WEEKLY;BYDAY=${rruleDay};COUNT=52`,
-                    ],
+                    // No recurrence — this is a one-time event for this specific date
                     colorId: '5', // banana yellow – closest to 8-Track's theme
                 };
 
@@ -182,9 +185,10 @@ const syncSchedule = async (req, res) => {
         }
 
         res.json({
-            message: `Sync complete! Created ${created} recurring event(s). Skipped ${skipped} holiday/empty day(s).`,
+            message: `Sync complete! Created ${created} event(s) for the week of ${weekLabel}. Skipped ${skipped} holiday/empty day(s).`,
             created,
             skipped,
+            weekOf: weekOf.toISOString(),
         });
     } catch (err) {
         console.error('Google Calendar sync error:', err.message);
@@ -192,4 +196,4 @@ const syncSchedule = async (req, res) => {
     }
 };
 
-export {  getAuthUrl, handleCallback, getStatus, disconnect, syncSchedule  };
+export { getAuthUrl, handleCallback, getStatus, disconnect, syncSchedule };

@@ -14,11 +14,14 @@ const DayScheduleSchema = new mongoose.Schema({
         enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
         required: true,
     },
+    // The Monday date of the week this schedule belongs to (week anchor).
+    // All 7 days in a week share the same weekOf value (the Monday of that week).
+    weekOf: { type: Date, required: true },
     isHoliday: { type: Boolean, default: false },
     slots: [SlotSchema],
 }, { timestamps: true });
 
-// One document per user per day
-DayScheduleSchema.index({ userId: 1, day: 1 }, { unique: true });
+// One document per user, per day, per week
+DayScheduleSchema.index({ userId: 1, day: 1, weekOf: 1 }, { unique: true });
 
 export default mongoose.model('Schedule', DayScheduleSchema);
