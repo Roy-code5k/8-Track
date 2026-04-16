@@ -107,7 +107,8 @@ const disconnect = async (req, res) => {
 // ── POST /api/google/sync ─────────────────────────────────────────────────────
 // Reads the user's 8-Track schedule for the ACTIVE WEEK and creates single
 // (non-recurring) events in their Google Calendar for each class slot.
-// Events are only for this specific week — no recurring rules applied.
+// Auto-cleans up events from the previous week and any already-synced events
+// from the active week to avoid duplicates.
 const syncSchedule = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('googleTokens');
@@ -131,6 +132,50 @@ const syncSchedule = async (req, res) => {
         const weekOf = getActiveWeekOf();
         const scheduleDocs = await Schedule.find({ userId: req.user._id, weekOf });
 
+        // Compute timeframe for cleanup: [Previous Monday to Next Monday]
+        const previousWeekMonday = new Date(weekOf);
+        previousWeekMonday.setDate(previousWeekMonday.getDate() - 7);
+
+        const nextWeekMonday = new Date(weekOf);
+        nextWeekMonday.setDate(nextWeekMonday.getDate() + 7);
+
+        // --- STEP 1: CLEANUP PREVIOUS & CURRENT WEEK ---
+        // We find all events in the target timeframe and wipe out the ones 
+        // that were synced by 8-Track. This handles both the previous week cleanup
+        // and duplicate-prevention for the current week.
+        let pageToken = null;
+        let eventsToDelete = [];
+        
+        do {
+            const listRes = await calendar.events.list({
+                calendarId: 'primary',
+                timeMin: previousWeekMonday.toISOString(),
+                timeMax: nextWeekMonday.toISOString(),
+                maxResults: 2500,
+                singleEvents: true, // Expand recurring events if any still exist
+                pageToken: pageToken
+            });
+            
+            const items = listRes.data.items || [];
+            for (const item of items) {
+                if (item.description && item.description.includes('Class synced from 8-Track')) {
+                    eventsToDelete.push(item.id);
+                }
+            }
+            pageToken = listRes.data.nextPageToken;
+        } while (pageToken);
+
+        let deletedCount = 0;
+        if (eventsToDelete.length > 0) {
+            // Delete in parallel
+            await Promise.allSettled(eventsToDelete.map(eventId => 
+                calendar.events.delete({ calendarId: 'primary', eventId })
+            )).then(results => {
+                deletedCount = results.filter(r => r.status === 'fulfilled').length;
+            });
+        }
+
+        // --- STEP 2: RECREATE CURRENT WEEK ---
         // Compute the week range label for the event description
         const weekEnd = new Date(weekOf);
         weekEnd.setDate(weekEnd.getDate() + 6); // Sunday of this week
@@ -185,9 +230,10 @@ const syncSchedule = async (req, res) => {
         }
 
         res.json({
-            message: `Sync complete! Created ${created} event(s) for the week of ${weekLabel}. Skipped ${skipped} holiday/empty day(s).`,
+            message: `Sync complete! Cleaned up ${deletedCount} past records. Created ${created} events for the week of ${weekLabel}.`,
             created,
             skipped,
+            deleted: deletedCount,
             weekOf: weekOf.toISOString(),
         });
     } catch (err) {
