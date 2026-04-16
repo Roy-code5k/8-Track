@@ -44,12 +44,14 @@ function calculateStreak(history) {
 
 function calculateMaxStreak(history) {
     if (!history || history.length === 0) return 0;
-    const days = getDistinctDays(history).reverse();
+    const days = getDistinctDays(history).reverse(); // oldest → newest
     let max = 0;
     let current = 0;
     let prev = null;
     for (let day of days) {
-        if (!prev || isSameDay(day, subDays(prev, -1))) {
+        // subDays(prev, 1) = yesterday relative to prev
+        // If today's day is the same as yesterday's prev, it's consecutive
+        if (!prev || isSameDay(day, subDays(prev, 1))) {
             current++;
         } else {
             current = 1;
@@ -61,33 +63,53 @@ function calculateMaxStreak(history) {
 }
 
 // ─── Heatmap Component ────────────────────────────────────────────────────────
-function Heatmap({ history, schedule }) {
+// Uses a per-date scheduledDatesMap (built from historical Schedule docs)
+// so each cell correctly reflects whether THAT SPECIFIC DATE had classes,
+// not just whether the current week has a slot on that day name.
+function Heatmap({ history, scheduledDatesMap }) {
     const today = startOfToday();
     const start = subWeeks(today, 12);
     const days = eachDayOfInterval({ start, end: today });
 
+    // Build counts: { 'yyyy-MM-dd' → number of 'present' records }
     const counts = history.reduce((acc, h) => {
         const d = format(new Date(h.date), 'yyyy-MM-dd');
         acc[d] = (acc[d] || 0) + (h.status === 'present' ? 1 : 0);
         return acc;
     }, {});
 
-    const scheduledDays = new Set(
-        (schedule || [])
-            .filter(d => !d.isHoliday && (d.slots || []).length > 0)
-            .map(d => d.day)
-    );
-
     const getColor = (day) => {
         const key = format(day, 'yyyy-MM-dd');
-        const dayName = format(day, 'EEEE');
         const count = counts[key] || 0;
-        const hasClass = scheduledDays.has(dayName);
-        if (!hasClass) return 'rgba(255, 255, 255, 0.05)';
-        if (count === 0) return 'rgba(232, 92, 92, 0.25)';
-        if (count >= 3) return '#E8A838';
-        if (count >= 2) return 'rgba(232, 168, 56, 0.6)';
-        return 'rgba(232, 168, 56, 0.25)';
+        // If we have historical schedule data for this date, use it.
+        // If not (e.g. very old date before app was used), fall back to count-based.
+        const hasClass = scheduledDatesMap ? scheduledDatesMap.get(key) : undefined;
+
+        if (hasClass === false) {
+            // We know this specific date had no class scheduled
+            return 'rgba(255, 255, 255, 0.04)';
+        }
+        if (hasClass === undefined && count === 0) {
+            // No schedule record for this week + no attendance = truly unknown
+            return 'rgba(255, 255, 255, 0.04)';
+        }
+        if (hasClass === true && count === 0) {
+            // Class was scheduled but user has no attendance marked
+            return 'rgba(232, 92, 92, 0.3)';
+        }
+        // Has attendance data
+        if (count >= 3) return '#E8A838';                    // 3+ classes: full gold
+        if (count >= 2) return 'rgba(232, 168, 56, 0.7)';   // 2 classes: strong yellow
+        return 'rgba(232, 168, 56, 0.3)';                    // 1 class: faint yellow
+    };
+
+    const getTooltip = (day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        const count = counts[key] || 0;
+        const hasClass = scheduledDatesMap?.get(key);
+        if (hasClass === false) return `${key}: No class scheduled`;
+        if (hasClass === true && count === 0) return `${key}: Class scheduled — not attended`;
+        return `${key}: ${count} class${count !== 1 ? 'es' : ''} attended`;
     };
 
     return (
@@ -95,15 +117,26 @@ function Heatmap({ history, schedule }) {
             <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black tracking-[0.2em] text-[var(--text-muted)] uppercase">Activity Heatmap (Last 12 Weeks)</p>
                 <div className="flex items-center gap-2 text-[8px] font-black text-[var(--text-muted)] uppercase tracking-wider">
-                    <span>Missed</span>
-                    <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 rounded-sm" style={{ background: 'rgba(232, 92, 92, 0.25)' }} />
-                        <div className="w-1.5 h-1.5 rounded-sm bg-white/5" />
-                        <div className="w-1.5 h-1.5 rounded-sm bg-[rgba(232,168,56,0.25)]" />
-                        <div className="w-1.5 h-1.5 rounded-sm bg-[rgba(232,168,56,0.6)]" />
-                        <div className="w-1.5 h-1.5 rounded-sm bg-[#E8A838]" />
+                    <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm" style={{ background: 'rgba(232, 92, 92, 0.3)' }} />
+                        <span>Missed</span>
                     </div>
-                    <span>Full</span>
+                    <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                        <span>No class</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm" style={{ background: 'rgba(232,168,56,0.3)' }} />
+                        <span>1 class</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm" style={{ background: 'rgba(232,168,56,0.7)' }} />
+                        <span>2 classes</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm" style={{ background: '#E8A838' }} />
+                        <span>3+ classes</span>
+                    </div>
                 </div>
             </div>
             <div className="grid grid-flow-col gap-1.5" style={{ gridTemplateRows: 'repeat(7, 1fr)' }}>
@@ -114,7 +147,7 @@ function Heatmap({ history, schedule }) {
                             key={ds}
                             className="w-3.5 h-3.5 rounded-sm transition-colors hover:ring-1 hover:ring-white/20"
                             style={{ background: getColor(d) }}
-                            title={`${ds}: ${counts[ds] || 0} classes`}
+                            title={getTooltip(d)}
                         />
                     );
                 })}
@@ -279,6 +312,39 @@ export default function ProgressPage() {
         queryFn: () => api.get('/schedule').then(r => r.data.schedule || []),
     });
 
+    // ── Historical schedule for the heatmap (long-term fix) ──────────────────
+    // We fetch ALL schedule docs across the last 13 weeks so the heatmap can
+    // correctly color each specific date based on what was scheduled THAT week,
+    // not just what is scheduled in the current active week.
+    const heatmapStart = subWeeks(startOfToday(), 13); // a little extra buffer
+    const { data: scheduleHistory = [] } = useQuery({
+        queryKey: ['schedule-history', format(heatmapStart, 'yyyy-MM-dd')],
+        queryFn: () =>
+            api.get(`/schedule/history?from=${heatmapStart.toISOString()}`)
+               .then(r => r.data.schedule || []),
+    });
+
+    // Build a Map<'yyyy-MM-dd', boolean> from historical schedule docs.
+    // For each doc: compute the actual calendar date (weekOf + day offset),
+    // then mark it true if it has slots and isn't a holiday.
+    const DAY_OFFSET_MAP = {
+        Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
+        Friday: 4, Saturday: 5, Sunday: 6,
+    };
+    const scheduledDatesMap = useMemo(() => {
+        const map = new Map();
+        for (const doc of scheduleHistory) {
+            const weekOf = new Date(doc.weekOf);
+            const offset = DAY_OFFSET_MAP[doc.day] ?? 0;
+            const exactDate = new Date(weekOf);
+            exactDate.setDate(exactDate.getDate() + offset);
+            const key = format(exactDate, 'yyyy-MM-dd');
+            // true = class day, false = no class (holiday or empty)
+            map.set(key, !doc.isHoliday && (doc.slots || []).length > 0);
+        }
+        return map;
+    }, [scheduleHistory]);
+
     const currentStreak = useMemo(() => calculateStreak(attendanceHistory), [attendanceHistory]);
     const maxStreakEver = useMemo(() => calculateMaxStreak(attendanceHistory), [attendanceHistory]);
     const totalDays = useMemo(() => getDistinctDays(attendanceHistory).length, [attendanceHistory]);
@@ -352,7 +418,7 @@ export default function ProgressPage() {
                 </div>
 
                 <div className="p-10 border-r border-white/5 flex flex-col justify-center">
-                    <Heatmap history={attendanceHistory} schedule={scheduleData} />
+                    <Heatmap history={attendanceHistory} scheduledDatesMap={scheduledDatesMap} />
                 </div>
 
                 <div className="p-10 space-y-8 flex flex-col justify-center">

@@ -135,4 +135,26 @@ const toggleHoliday = async (req, res, next) => {
     }
 };
 
-export { getSchedule, addSlot, deleteSlot, toggleHoliday, getMondayOfWeek, getActiveWeekOf };
+// GET /api/schedule/history?from=<ISO>&to=<ISO>
+// Returns ALL schedule docs for this user within the given weekOf range.
+// Used by the Progress page heatmap to get per-week schedule data historically.
+const getScheduleHistory = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const { from, to } = req.query;
+
+        const query = { userId };
+        if (from || to) {
+            query.weekOf = {};
+            if (from) query.weekOf.$gte = new Date(from);
+            if (to)   query.weekOf.$lte = new Date(to);
+        }
+
+        const docs = await Schedule.find(query).lean();
+        res.json({ schedule: docs });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export { getSchedule, addSlot, deleteSlot, toggleHoliday, getMondayOfWeek, getActiveWeekOf, getScheduleHistory };

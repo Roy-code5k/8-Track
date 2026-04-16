@@ -64,17 +64,13 @@ const STATUS_STYLE = {
 const SUBJECT_COLORS = ['#3ABFBF', '#E8A838', '#E85C5C', '#8b5cf6', '#22c55e', '#ec4899', '#06b6d4'];
 
 // ─── Streak Heatmap (last 4 weeks) ───────────────────────────────────────────
-function StreakHeatmap({ schedule, attendanceHistory }) {
+// Colors each day purely by attendance count (not schedule-dependent),
+// because schedule is now week-specific and we'd need historical schedule
+// data to correctly know which days had classes in past weeks.
+function StreakHeatmap({ attendanceHistory }) {
     const today = new Date();
 
-    // Build a set of days (lowercase 'Monday') that have classes per the schedule
-    const scheduledDays = new Set(
-        (schedule || [])
-            .filter(d => !d.isHoliday && (d.slots || []).length > 0)
-            .map(d => d.day) // e.g. 'Monday'
-    );
-
-    // Build a map: 'yyyy-MM-dd' -> present count
+    // Build a map: 'yyyy-MM-dd' → total present count for that day
     const attendedMap = (attendanceHistory || []).reduce((acc, h) => {
         if (h.status === 'present') {
             const key = format(new Date(h.date), 'yyyy-MM-dd');
@@ -83,26 +79,24 @@ function StreakHeatmap({ schedule, attendanceHistory }) {
         return acc;
     }, {});
 
-    // 28 cells: from 27 days ago to today
+    // 28 cells: 27 days ago → today (left-to-right, top-to-bottom in 7-col grid)
     const cells = Array.from({ length: 28 }, (_, i) => {
         const d = new Date(today);
         d.setDate(d.getDate() - (27 - i));
         const key = format(d, 'yyyy-MM-dd');
-        const dayName = format(d, 'EEEE'); // 'Monday', etc.
-        const hasClass = scheduledDays.has(dayName);
         const attended = attendedMap[key] || 0;
 
-        if (!hasClass) return 'none';      // no class day – neutral
-        if (attended >= 3) return 'high';  // ≥3 classes attended
-        if (attended >= 1) return 'med';   // some attendance
-        return 'low';                      // class day but nothing recorded
+        if (attended === 0) return 'none';   // no attendance recorded
+        if (attended >= 3)  return 'high';   // 3+ subjects attended
+        if (attended >= 2)  return 'med';    // 2 subjects attended
+        return 'low';                        // 1 subject attended
     });
 
     const colorMap = {
         none: 'rgba(255, 255, 255, 0.05)',
-        low:  'rgba(232, 92, 92, 0.3)',    // missed class
-        med:  'rgba(232, 168, 56, 0.5)',   // partial
-        high: 'var(--primary-accent)',     // fully attended
+        low:  'rgba(232, 168, 56, 0.25)',   // 1 class
+        med:  'rgba(232, 168, 56, 0.6)',    // 2 classes
+        high: 'var(--primary-accent)',      // 3+ classes (full gold)
     };
 
     return (
@@ -398,7 +392,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <div>
-                        <StreakHeatmap schedule={scheduleData} attendanceHistory={attendanceHistory} />
+                        <StreakHeatmap attendanceHistory={attendanceHistory} />
                         <div className="flex justify-between mt-3 px-0.5">
                             <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Activity</p>
                             <p className="text-[10px] font-black tracking-widest text-[rgba(255,255,255,0.2)] uppercase">Last 4 Weeks</p>
