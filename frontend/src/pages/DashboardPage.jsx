@@ -293,18 +293,27 @@ export default function DashboardPage() {
 
     const { data: subjects = [], isLoading } = useQuery({
         queryKey: ['subjects'],
-        queryFn: () => api.get('/subjects').then(r => r.data.subjects || r.data),
+        queryFn: () => api.get('/subjects').then(r => {
+            const raw = r.data.subjects || r.data;
+            return Array.isArray(raw) ? raw : [];
+        }),
         retry: 1,
     });
 
     const { data: assignments = [] } = useQuery({
         queryKey: ['assignments'],
-        queryFn: () => api.get('/assignments').then(r => r.data.assignments || r.data),
+        queryFn: () => api.get('/assignments').then(r => {
+            const raw = r.data.assignments || r.data;
+            return Array.isArray(raw) ? raw : [];
+        }),
     });
 
     const { data: tasks = [] } = useQuery({
         queryKey: ['tasks'],
-        queryFn: () => api.get('/tasks').then(r => r.data.tasks || r.data),
+        queryFn: () => api.get('/tasks').then(r => {
+            const raw = r.data.tasks || r.data;
+            return Array.isArray(raw) ? raw : [];
+        }),
     });
 
     const { data: scheduleData, isLoading: scheduleLoading } = useQuery({
@@ -314,12 +323,18 @@ export default function DashboardPage() {
 
     const { data: attendanceHistory = [] } = useQuery({
         queryKey: ['global-attendance'],
-        queryFn: () => api.get('/attendance').then(r => r.data.history || r.data),
+        queryFn: () => api.get('/attendance').then(r => {
+            const raw = r.data.history || r.data;
+            return Array.isArray(raw) ? raw : [];
+        }),
     });
 
     const { data: exams = [] } = useQuery({
         queryKey: ['exams'],
-        queryFn: () => api.get('/exams').then(r => r.data.exams || r.data),
+        queryFn: () => api.get('/exams').then(r => {
+            const raw = r.data.exams || r.data;
+            return Array.isArray(raw) ? raw : [];
+        }),
     });
 
     const markMutation = useMutation({
