@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Plus, CheckCircle2, AlertCircle, XCircle, Trash2, Edit2, X, CalendarX, Clock, CalendarCheck, RefreshCw, Unlink, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
@@ -70,7 +70,7 @@ function TimeInput({ value, onChange, label, align = "left" }) {
                 className="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl bg-black/20 border transition-all text-[11px] font-bold"
                 style={{ borderColor: isOpen ? 'hsl(43 96% 56%)' : 'hsl(240 6% 20%)', color: value ? 'white' : 'hsl(240 5% 45%)' }}
             >
-                                <Clock className="w-3.5 h-3.5 text-yellow-500/80" />
+                <Clock className="w-3.5 h-3.5 text-yellow-500/80" />
                 <span>{value || "--:--"}</span>
             </button>
 
@@ -529,6 +529,66 @@ export default function SubjectsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingSubject, setEditingSubject] = useState(null);
 
+    const [pendingSubjects, setPendingSubjects] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('pending_subjects') || '[]');
+        } catch {
+            return [];
+        }
+    });
+
+    // Save pending subjects to localStorage
+    useEffect(() => {
+        localStorage.setItem('pending_subjects', JSON.stringify(pendingSubjects));
+    }, [pendingSubjects]);
+
+    // Handle online/offline sync
+    useEffect(() => {
+        if (navigator.onLine && pendingSubjects.length > 0) {
+            processSyncQueue();
+        }
+
+        const handleOnline = () => {
+            processSyncQueue();
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [pendingSubjects.length]);
+
+    const processSyncQueue = async () => {
+        if (!navigator.onLine || pendingSubjects.length === 0) return;
+        
+        showToast(`Syncing ${pendingSubjects.length} offline subject records...`, 'info');
+        
+        const subjectsToSync = [...pendingSubjects];
+        let successCount = 0;
+        const failed = [];
+
+        for (const sub of subjectsToSync) {
+            try {
+                // eslint-disable-next-line no-unused-vars
+                const { _id, isPending, attendedClasses, totalClasses, percentage, status, ...payload } = sub;
+                
+                if (_id && _id.toString().startsWith('temp_')) {
+                    await api.post('/subjects', payload);
+                } else {
+                    await api.put(`/subjects/${_id}`, payload);
+                }
+                successCount++;
+            } catch (err) {
+                console.error(`[Sync] Failed to sync subject "${sub.name}":`, err.response?.data || err.message);
+                failed.push(sub);
+            }
+        }
+
+        setPendingSubjects(failed);
+        if (successCount > 0) {
+            showToast(`Successfully synced ${successCount} subjects!`, 'success');
+            queryClient.invalidateQueries({ queryKey: ['subjects'] });
+        }
+    };
+
     // Form state
     const [formData, setFormData] = useState({ 
         name: '', 
@@ -621,12 +681,54 @@ export default function SubjectsPage() {
             semester: formData.semester ? parseInt(formData.semester, 10) : 1,
         };
 
+        if (!navigator.onLine) {
+            const subId = editingSubject ? editingSubject._id : `temp_${Date.now()}`;
+            const queuedSub = {
+                ...payload,
+                _id: subId,
+                isPending: true,
+                attendedClasses: editingSubject?.attendedClasses || 0,
+                totalClasses: editingSubject?.totalClasses || 0,
+                percentage: editingSubject?.percentage || 0,
+                status: editingSubject?.status || 'safe'
+            };
+
+            setPendingSubjects(prev => {
+                const idx = prev.findIndex(s => s._id === subId);
+                if (idx > -1) {
+                    const next = [...prev];
+                    next[idx] = queuedSub;
+                    return next;
+                }
+                return [...prev, queuedSub];
+            });
+
+            showToast('Offline: Subject changes queued', 'info');
+            closeModal();
+            return;
+        }
+
         if (editingSubject) {
             updateMutation.mutate(payload);
         } else {
             createMutation.mutate(payload);
         }
     };
+
+    const displaySubjects = useMemo(() => {
+        let list = subjects || [];
+        if (pendingSubjects.length > 0) {
+            // 1. Apply offline updates
+            list = list.map(s => {
+                const update = pendingSubjects.find(p => p._id === s._id);
+                return update ? { ...s, ...update } : s;
+            });
+            // 2. Add brand new offline subjects
+            const newOffline = pendingSubjects.filter(p => !list.find(s => s._id === p._id));
+            list = [...list, ...newOffline];
+        }
+        return list;
+    }, [subjects, pendingSubjects]);
 
     return (
         <div className="space-y-6 max-w-6xl">
@@ -654,7 +756,7 @@ export default function SubjectsPage() {
             {/* ── Content ── */}
             {isLoading ? (
                 <div className="py-20 text-center" style={{ color: 'hsl(240 5% 50%)' }}>Loading subjects...</div>
-            ) : subjects.length === 0 ? (
+            ) : displaySubjects.length === 0 ? (
                 <div className="py-20 text-center rounded-2xl border border-dashed"
                     style={{ background: 'hsl(240 10% 9%)', borderColor: 'hsl(240 6% 20%)' }}>
                     <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
@@ -673,7 +775,7 @@ export default function SubjectsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {subjects.map((sub, i) => {
+                    {displaySubjects.map((sub, i) => {
                         const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
                         const status = sub.status || 'danger';
                         const st = STATUS_STYLE[status];
@@ -718,10 +820,18 @@ export default function SubjectsPage() {
 
                                 <div className="flex items-center justify-between mt-auto pt-2">
                                     {/* Status Badge */}
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md"
-                                        style={{ background: st.bg, color: st.color }}>
-                                        <StatusIcon className="w-3.5 h-3.5" />
-                                        <span className="text-xs font-bold">{st.label}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md"
+                                            style={{ background: st.bg, color: st.color }}>
+                                            <StatusIcon className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-bold">{st.label}</span>
+                                        </div>
+                                        {sub.isPending && (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-yellow-500/10 text-yellow-500 animate-pulse border border-yellow-500/20">
+                                                <Clock className="w-3 h-3" />
+                                                <span className="text-[10px] font-black tracking-widest uppercase">QUEUED</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Target Check */}
@@ -867,7 +977,7 @@ export default function SubjectsPage() {
                                     className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-transform active:scale-95 disabled:opacity-50"
                                     style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}
                                 >
-                                    {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save Subject'}
+                                    {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (!navigator.onLine ? 'Queue Subject' : 'Save Subject')}
                                 </button>
                             </div>
                         </form>
@@ -877,15 +987,3 @@ export default function SubjectsPage() {
         </div>
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-

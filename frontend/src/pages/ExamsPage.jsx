@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { GraduationCap, Plus, Trash2, X, Award } from 'lucide-react';
 import { format } from 'date-fns';
@@ -9,6 +9,67 @@ export default function ExamsPage() {
     const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    const [pendingExams, setPendingExams] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('pending_exams') || '[]');
+        } catch {
+            return [];
+        }
+    });
+
+    // Save pending exams to localStorage
+    useEffect(() => {
+        localStorage.setItem('pending_exams', JSON.stringify(pendingExams));
+    }, [pendingExams]);
+
+    // Handle online/offline sync
+    useEffect(() => {
+        if (navigator.onLine && pendingExams.length > 0) {
+            processSyncQueue();
+        }
+
+        const handleOnline = () => {
+            processSyncQueue();
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [pendingExams.length]);
+
+    const processSyncQueue = async () => {
+        if (!navigator.onLine || pendingExams.length === 0) return;
+        
+        showToast(`Syncing ${pendingExams.length} offline exam records...`, 'info');
+        
+        const examsToSync = [...pendingExams];
+        let successCount = 0;
+        const failed = [];
+
+        for (const exam of examsToSync) {
+            try {
+                // eslint-disable-next-line no-unused-vars
+                const { _id, isPending, subjectId, percentage, ...payload } = exam;
+                
+                const finalPayload = { ...payload };
+                if (subjectId && typeof subjectId === 'object' && subjectId._id) {
+                    finalPayload.subjectId = subjectId._id;
+                }
+
+                await api.post('/exams', finalPayload);
+                successCount++;
+            } catch (err) {
+                console.error(`[Sync] Failed to sync exam "${exam.examName}":`, err.response?.data || err.message);
+                failed.push(exam);
+            }
+        }
+
+        setPendingExams(failed);
+        if (successCount > 0) {
+            showToast(`Successfully synced ${successCount} exam records!`, 'success');
+            queryClient.invalidateQueries({ queryKey: ['exams'] });
+        }
+    };
 
     // Form state
     const [formData, setFormData] = useState({
@@ -69,6 +130,7 @@ export default function ExamsPage() {
     const handleSubmit = (e) => {
         e.preventDefault();
         const isCompleted = formData.status === 'completed';
+        let payload = {};
 
         if (isCompleted) {
             const obtained = Number(formData.marksObtained);
@@ -79,34 +141,53 @@ export default function ExamsPage() {
                 return;
             }
 
-            createMutation.mutate({
+            payload = {
                 examName: formData.examName,
                 subjectId: formData.subjectId,
                 marksObtained: obtained,
                 maxMarks: max,
                 status: 'completed',
                 date: formData.date
-            });
+            };
         } else {
-            createMutation.mutate({
+            payload = {
                 examName: formData.examName,
                 subjectId: formData.subjectId,
                 status: 'upcoming',
                 date: formData.date
-            });
+            };
         }
+
+        if (!navigator.onLine) {
+            const tempId = `temp_${Date.now()}`;
+            const queuedExam = {
+                ...payload,
+                _id: tempId,
+                isPending: true,
+                percentage: isCompleted ? ((payload.marksObtained / payload.maxMarks) * 100).toFixed(1) : 0,
+                subjectId: subjects.find(s => s._id === payload.subjectId) || { name: 'Subject' }
+            };
+
+            setPendingExams(prev => [...prev, queuedExam]);
+            showToast('Offline: Exam record queued', 'info');
+            closeModal();
+            return;
+        }
+
+        createMutation.mutate(payload);
     };
 
     // ── Group Exams by Exam Name ──
     const groupedExams = useMemo(() => {
         const groups = {};
-        exams.forEach(exam => {
+        const allExams = [...exams, ...pendingExams];
+        allExams.forEach(exam => {
             const name = exam.examName;
             if (!groups[name]) groups[name] = [];
             groups[name].push(exam);
         });
         return groups;
-    }, [exams]);
+    }, [exams, pendingExams]);
 
     return (
         <div className="space-y-6 max-w-5xl">
@@ -134,7 +215,7 @@ export default function ExamsPage() {
             {/* ── Content ── */}
             {isLoading ? (
                 <div className="py-20 text-center" style={{ color: 'hsl(240 5% 50%)' }}>Loading exams...</div>
-            ) : exams.length === 0 ? (
+            ) : Object.keys(groupedExams).length === 0 ? (
                 <div className="py-20 text-center rounded-2xl border border-dashed"
                     style={{ background: 'hsl(240 10% 9%)', borderColor: 'hsl(240 6% 20%)' }}>
                     <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
@@ -158,8 +239,8 @@ export default function ExamsPage() {
                         let totalObtained = 0;
                         let totalMax = 0;
                         records.forEach(r => {
-                            totalObtained += r.marksObtained;
-                            totalMax += r.maxMarks;
+                            totalObtained += Number(r.marksObtained || 0);
+                            totalMax += Number(r.maxMarks || 0);
                         });
                         const overallPct = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(1) : 0;
 
@@ -206,8 +287,13 @@ export default function ExamsPage() {
                                             <tr key={record._id} className="group hover:bg-white/5 transition-colors">
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-semibold text-white">
+                                                        <span className="text-sm font-semibold text-white flex items-center gap-2">
                                                             {record.subjectId?.name || 'Deleted Subject'}
+                                                            {record.isPending && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-widest bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 animate-pulse">
+                                                                    QUEUED
+                                                                </span>
+                                                            )}
                                                         </span>
                                                         <span className="text-[10px] font-bold uppercase tracking-wider mt-0.5 opacity-40">
                                                             {format(new Date(record.date), 'MMM dd, yyyy • hh:mm a')}
@@ -394,7 +480,7 @@ export default function ExamsPage() {
                                     className="flex-1 py-3 rounded-xl text-sm font-black transition-all active:scale-95 disabled:opacity-50"
                                     style={{ background: 'hsl(43 96% 56%)', color: 'hsl(240 5.9% 10%)' }}
                                 >
-                                    {createMutation.isPending ? 'Processing...' : (formData.status === 'upcoming' ? 'Schedule Exam' : 'Save Result')}
+                                    {createMutation.isPending ? 'Processing...' : (!navigator.onLine ? 'Queue Result' : (formData.status === 'upcoming' ? 'Schedule Exam' : 'Save Result'))}
                                 </button>
                             </div>
                         </form>

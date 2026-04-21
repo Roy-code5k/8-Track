@@ -2,12 +2,12 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     ChevronLeft, ChevronRight, Download, Calendar, 
-    MoreHorizontal, Check, X, Flame, ArrowUpRight, 
-    ArrowDownRight, Info, Plus
+    Check, X, Flame, ArrowUpRight, 
+    ArrowDownRight, Clock
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 import api from '../lib/api';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../components/common/Toast';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -24,6 +24,69 @@ export default function AttendancePage() {
     const { showToast } = useToast();
     const [currentDate, setCurrentDate] = useState(new Date());
 
+    const [pendingAttendance, setPendingAttendance] = useState(() => {
+        try {
+            const allPending = JSON.parse(localStorage.getItem('pending_attendance') || '[]');
+            return allPending.filter(a => a.subjectId === subjectId);
+        } catch {
+            return [];
+        }
+    });
+
+    // Save pending attendance to localStorage (handle all subjects)
+    useEffect(() => {
+        try {
+            const others = JSON.parse(localStorage.getItem('pending_attendance') || '[]')
+                .filter(a => a.subjectId !== subjectId);
+            localStorage.setItem('pending_attendance', JSON.stringify([...others, ...pendingAttendance]));
+        } catch (err) {
+            console.error('Failed to save pending attendance', err);
+        }
+    }, [pendingAttendance, subjectId]);
+
+    // Handle online/offline sync
+    useEffect(() => {
+        if (navigator.onLine && pendingAttendance.length > 0) {
+            processSyncQueue();
+        }
+
+        const handleOnline = () => {
+            processSyncQueue();
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [pendingAttendance.length]);
+
+    const processSyncQueue = async () => {
+        if (!navigator.onLine || pendingAttendance.length === 0) return;
+        
+        showToast(`Syncing ${pendingAttendance.length} offline attendance records...`, 'info');
+        
+        const toSync = [...pendingAttendance];
+        let successCount = 0;
+        const failed = [];
+
+        for (const item of toSync) {
+            try {
+                // eslint-disable-next-line no-unused-vars
+                const { _id, isPending, ...payload } = item;
+                await api.post('/attendance', payload);
+                successCount++;
+            } catch (err) {
+                console.error(`[Sync] Failed to sync attendance:`, err.response?.data || err.message);
+                failed.push(item);
+            }
+        }
+
+        setPendingAttendance(failed);
+        if (successCount > 0) {
+            showToast(`Successfully synced ${successCount} attendance records!`, 'success');
+            queryClient.invalidateQueries({ queryKey: ['attendance', subjectId] });
+            queryClient.invalidateQueries({ queryKey: ['subjects'] });
+        }
+    };
+
     // ── Queries ──
     const { data, isLoading } = useQuery({
         queryKey: ['attendance', subjectId],
@@ -31,7 +94,17 @@ export default function AttendancePage() {
     });
 
     const markMutation = useMutation({
-        mutationFn: (status) => api.post('/attendance', { subjectId, status, date: new Date().toISOString() }),
+        mutationFn: (status) => {
+            const payload = { subjectId, status, date: new Date().toISOString() };
+            if (!navigator.onLine) {
+                const tempId = `temp_${Date.now()}`;
+                const queued = { ...payload, _id: tempId, isPending: true };
+                setPendingAttendance(prev => [...prev, queued]);
+                showToast('Offline: Attendance queued', 'info');
+                return Promise.resolve();
+            }
+            return api.post('/attendance', payload);
+        },
         onSuccess: () => {
              queryClient.invalidateQueries({ queryKey: ['attendance', subjectId] });
              queryClient.invalidateQueries({ queryKey: ['subjects'] });
@@ -41,24 +114,30 @@ export default function AttendancePage() {
 
     const { history = [], subject = {}, prediction = {} } = data || {};
 
-    // ── Calendar Logic ──
+    // ── Merged History and Calendar Logic ──
+    const mergedHistory = useMemo(() => {
+        const list = [...history, ...pendingAttendance];
+        return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [history, pendingAttendance]);
+
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // Map history to days for the calendar
-    const attendanceMap = history.reduce((acc, rec) => {
-        const d = format(new Date(rec.date), 'yyyy-MM-dd');
-        acc[d] = rec.status;
-        return acc;
-    }, {});
+    const attendanceMap = useMemo(() => {
+        return mergedHistory.reduce((acc, rec) => {
+            const d = format(new Date(rec.date), 'yyyy-MM-dd');
+            acc[d] = rec.status;
+            return acc;
+        }, {});
+    }, [mergedHistory]);
 
-    const presentCount = history.filter(h => h.status === 'present' && isSameMonth(new Date(h.date), currentDate)).length;
-    const absentCount = history.filter(h => h.status === 'absent' && isSameMonth(new Date(h.date), currentDate)).length;
+    const presentCount = mergedHistory.filter(h => h.status === 'present' && isSameMonth(new Date(h.date), currentDate)).length;
+    const absentCount = mergedHistory.filter(h => h.status === 'absent' && isSameMonth(new Date(h.date), currentDate)).length;
 
     if (isLoading) return <div className="py-20 text-center text-muted-foreground animate-pulse">Loading subject data...</div>;
 
-    // Derived Stats
+    // Derived Stats (approximation if offline)
     const nextAttendancePct = subject.totalClasses > 0 
         ? ((subject.attendedClasses) / (subject.totalClasses + 1)) * 100 
         : 0;
@@ -190,10 +269,18 @@ export default function AttendancePage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[rgba(255,255,255,0.03)]">
-                                {history.slice(0, 5).map((rec, i) => (
-                                    <tr key={i} className="group hover:bg-[rgba(255,255,255,0.01)] transition-colors">
+                                {mergedHistory.slice(0, 10).map((rec, i) => (
+                                    <tr key={rec._id || i} className="group hover:bg-[rgba(255,255,255,0.01)] transition-colors">
                                         <td className="py-5 pr-4">
-                                            <span className="text-[14px] font-bold text-white">{format(new Date(rec.date), 'dd/MM/yyyy')}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[14px] font-bold text-white">{format(new Date(rec.date), 'dd/MM/yyyy')}</span>
+                                                {rec.isPending && (
+                                                    <span className="text-[8px] font-black tracking-widest uppercase text-yellow-500 flex items-center gap-1 mt-0.5">
+                                                        <Clock className="w-2 h-2" />
+                                                        Queued
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="py-5 pr-4">
                                             <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border"
@@ -320,15 +407,17 @@ export default function AttendancePage() {
                     <div className="grid grid-cols-2 gap-4">
                         <button 
                             onClick={() => markMutation.mutate('present')}
-                            className="py-4 px-6 rounded-2xl bg-[rgba(76,175,125,0.1)] border border-[rgba(76,175,125,0.2)] text-[var(--status-safe)] text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-[rgba(76,175,125,0.2)] active:scale-95">
+                            disabled={markMutation.isPending}
+                            className="py-4 px-6 rounded-2xl bg-[rgba(76,175,125,0.1)] border border-[rgba(76,175,125,0.2)] text-[var(--status-safe)] text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-[rgba(76,175,125,0.2)] active:scale-95 disabled:opacity-50">
                             <Check className="w-4 h-4" />
-                            Mark Present
+                            {markMutation.isPending && !navigator.onLine ? 'Queuing Present...' : 'Mark Present'}
                         </button>
                         <button 
                             onClick={() => markMutation.mutate('absent')}
-                            className="py-4 px-6 rounded-2xl bg-[rgba(232,92,92,0.1)] border border-[rgba(232,92,92,0.2)] text-[var(--status-danger)] text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-[rgba(232,92,92,0.2)] active:scale-95">
+                            disabled={markMutation.isPending}
+                            className="py-4 px-6 rounded-2xl bg-[rgba(232,92,92,0.1)] border border-[rgba(232,92,92,0.2)] text-[var(--status-danger)] text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-[rgba(232,92,92,0.2)] active:scale-95 disabled:opacity-50">
                             <X className="w-4 h-4" />
-                            Mark Absent
+                            {markMutation.isPending && !navigator.onLine ? 'Queuing Absent...' : 'Mark Absent'}
                         </button>
                     </div>
                 </div>
