@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { WifiOff } from 'lucide-react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import DashboardPage from '../../pages/DashboardPage';
@@ -35,11 +37,30 @@ const PAGE_TITLES = {
 export default function Layout() {
     const { pathname } = useLocation();
     const title = PAGE_TITLES[pathname] || 'Dashboard';
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleStatus = () => setIsOnline(navigator.onLine);
+        window.addEventListener('online', handleStatus);
+        window.addEventListener('offline', handleStatus);
+        return () => {
+            window.removeEventListener('online', handleStatus);
+            window.removeEventListener('offline', handleStatus);
+        };
+    }, []);
 
     return (
         <div className="flex min-h-screen" style={{ background: 'var(--main-bg)' }}>
             <Sidebar />
             <div className="flex flex-col flex-1 min-w-0">
+                {!isOnline && (
+                    <div className="bg-[#E8A838] text-black py-2 px-6 flex items-center justify-center gap-3 animate-in slide-in-from-top duration-300 z-[100]">
+                        <WifiOff className="w-4 h-4" />
+                        <span className="text-[13px] font-black tracking-widest uppercase">
+                            You are offline • Tasks will be queued until connection returns
+                        </span>
+                    </div>
+                )}
                 <TopBar title={title} />
                 <main className="flex-1 overflow-auto px-10 py-8">
                     <Routes>

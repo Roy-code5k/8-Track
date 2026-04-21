@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     Plus, Filter, ChevronDown, 
@@ -6,7 +6,7 @@ import {
     Clock, AlertCircle, X, Check, ArrowRight, ArrowLeft,
     Pencil, Trash2, MoreVertical, GripVertical
 } from 'lucide-react';
-import { format, isToday, isThisWeek, parseISO } from 'date-fns';
+import { format, isToday, isThisWeek, parseISO, differenceInCalendarDays } from 'date-fns';
 import api from '../lib/api';
 import { useToast } from '../components/common/Toast';
 
@@ -73,14 +73,19 @@ const PREV_STATUS = {
 function TaskCard({ task, onEdit, onDelete, onStatusChange, onDragStart }) {
     const rawName = task.subjectId?.name || 'General';
     const styling = getSubjectStyle(rawName);
-    const dueDate = parseISO(task.dueDate);
+    // Extract just the date part (YYYY-MM-DD) to avoid timezone shifts between local and server strings
+    const dateOnly = typeof task.dueDate === 'string' ? task.dueDate.split('T')[0] : format(new Date(task.dueDate), 'yyyy-MM-dd');
+    const dueDate = parseISO(dateOnly);
     
     let dueLabel = '';
     if (task.status === 'completed') {
         dueLabel = `Completed ${format(new Date(task.updatedAt || new Date()), 'dd/MM/yyyy')}`;
     } else {
-        if (isToday(dueDate)) dueLabel = 'Due Today';
-        else if (isThisWeek(dueDate)) dueLabel = `Due in ${format(dueDate, 'd')} days`; // Simplified
+        const diff = differenceInCalendarDays(dueDate, new Date());
+        if (diff === 0) dueLabel = 'Due Today';
+        else if (diff === 1) dueLabel = 'Due Tomorrow';
+        else if (diff > 1 && diff < 7) dueLabel = `Due in ${diff} days`;
+        else if (diff < 0) dueLabel = `Overdue by ${Math.abs(diff)} days`;
         else dueLabel = `Due ${format(dueDate, 'dd/MM/yyyy')}`;
     }
 
@@ -155,6 +160,12 @@ function TaskCard({ task, onEdit, onDelete, onStatusChange, onDragStart }) {
                     {rawName}
                 </span>
                 <div className="flex items-center gap-2">
+                    {task.isPending && (
+                        <div className="flex items-center gap-1 bg-[var(--primary-accent)]/10 px-2 py-0.5 rounded-full border border-[var(--primary-accent)]/20 animate-pulse">
+                            <Clock className="w-2.5 h-2.5 text-[var(--primary-accent)]" />
+                            <span className="text-[8px] font-black text-[var(--primary-accent)] tracking-tighter">QUEUED</span>
+                        </div>
+                    )}
                     {!isCompleted && <div className="w-2 h-2 rounded-full" style={{ background: PRIORITY_COLORS[task.priority || 'medium'] }} />}
                     {isCompleted && (
                         <div className="w-6 h-6 rounded-full bg-[rgba(76,175,125,0.1)] flex items-center justify-center border border-[rgba(76,175,125,0.2)]">
@@ -216,9 +227,79 @@ export default function AssignmentsPage() {
     const [filter, setFilter] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
-    const [dragOverCol, setDragOverCol] = useState(null); // which column is being hovered
+    const [dragOverCol, setDragOverCol] = useState(null);
 
+    const [pendingTasks, setPendingTasks] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('pending_assignments') || '[]');
+        } catch {
+            return [];
+        }
+    });
 
+    // Save pending tasks to localStorage
+    useEffect(() => {
+        localStorage.setItem('pending_assignments', JSON.stringify(pendingTasks));
+    }, [pendingTasks]);
+
+    // Handle online/offline sync
+    useEffect(() => {
+        // 1. Check immediately on mount/change if we are online and have tasks
+        if (navigator.onLine && pendingTasks.length > 0) {
+            processSyncQueue();
+        }
+
+        // 2. Continuous listener for network restoration
+        const handleOnline = () => {
+            processSyncQueue();
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [pendingTasks.length]); // Re-run effect only when queue count changes
+
+    const processSyncQueue = async () => {
+        if (!navigator.onLine || pendingTasks.length === 0) return;
+        
+        console.log(`[Sync] Attempting to sync ${pendingTasks.length} operations...`);
+        showToast(`Syncing ${pendingTasks.length} offline changes...`, 'info');
+        
+        const tasksToSync = [...pendingTasks];
+        let successCount = 0;
+        const failed = [];
+
+        for (const task of tasksToSync) {
+            try {
+                // eslint-disable-next-line no-unused-vars
+                const { _id, isPending, subjectId, ...payload } = task;
+                
+                const finalPayload = { ...payload };
+                if (subjectId && typeof subjectId === 'object' && subjectId._id) {
+                    finalPayload.subjectId = subjectId._id;
+                } else if (typeof subjectId === 'string' && subjectId.length > 10) {
+                    finalPayload.subjectId = subjectId;
+                }
+
+                // If _id starts with 'temp_', it's a NEW task (POST)
+                // Otherwise, it's an UPDATE to an existing server task (PUT)
+                if (_id && _id.toString().startsWith('temp_')) {
+                    await api.post('/assignments', finalPayload);
+                } else {
+                    await api.put(`/assignments/${_id}`, finalPayload);
+                }
+                successCount++;
+            } catch (err) {
+                console.error(`[Sync] Failed to sync task "${task.title}":`, err.response?.data || err.message);
+                failed.push(task);
+            }
+        }
+
+        setPendingTasks(failed);
+        if (successCount > 0) {
+            showToast(`Successfully synced ${successCount} changes!`, 'success');
+            queryClient.invalidateQueries({ queryKey: ['assignments'] });
+        }
+    };
     // ── Queries and Mutations ──
     const { data: assignmentsData, isLoading: tasksLoading } = useQuery({
         queryKey: ['assignments'],
@@ -249,6 +330,22 @@ export default function AssignmentsPage() {
         },
         onError: (err) => showToast(err.response?.data?.message || 'Failed to delete assignment', 'error'),
     });
+    
+    // ── Column Data Merging ──
+    const tasks = useMemo(() => {
+        let list = assignmentsData || [];
+        if (pendingTasks.length > 0) {
+            // 1. Apply offline updates to server tasks
+            list = list.map(t => {
+                const update = pendingTasks.find(p => p._id === t._id);
+                return update ? { ...t, ...update } : t;
+            });
+            // 2. Add brand new offline tasks
+            const newOfflineTasks = pendingTasks.filter(p => p._id.toString().startsWith('temp_'));
+            list = [...list, ...newOfflineTasks];
+        }
+        return list;
+    }, [assignmentsData, pendingTasks]);
 
     // ── Drag Handlers ──
     const handleDragOver = (e, colId) => {
@@ -258,7 +355,6 @@ export default function AssignmentsPage() {
     };
 
     const handleDragLeave = (e) => {
-        // Only clear when leaving the column entirely (not its children)
         if (!e.currentTarget.contains(e.relatedTarget)) {
             setDragOverCol(null);
         }
@@ -271,26 +367,49 @@ export default function AssignmentsPage() {
         const currentStatus = e.dataTransfer.getData('currentStatus');
         if (!taskId || currentStatus === targetStatus) return;
 
-        const task = (assignmentsData || []).find(t => t._id === taskId);
+        const task = tasks.find(t => t._id === taskId);
         if (!task) return;
 
-        // Optimistic update in cache
-        queryClient.setQueryData(['assignments'], (old) =>
-            old ? old.map(t => t._id === taskId ? { ...t, status: targetStatus } : t) : old
-        );
-
-        saveMutation.mutate({ ...task, status: targetStatus }, {
-            onError: () => {
-                // Roll back on error
-                queryClient.setQueryData(['assignments'], (old) =>
-                    old ? old.map(t => t._id === taskId ? { ...t, status: currentStatus } : t) : old
-                );
-            }
-        });
+        // Perform the save (handles offline automatically)
+        handleSaveTask({ ...task, status: targetStatus });
     };
 
-    // ── Column Data ──
-    const tasks = assignmentsData || [];
+    // ── Unified Save Logic ──
+    const handleSaveTask = (taskPayload) => {
+        const isUpdate = !!taskPayload._id;
+
+        if (!navigator.onLine) {
+            const taskId = isUpdate ? taskPayload._id : `temp_${Date.now()}`;
+            const queuedTask = {
+                ...taskPayload,
+                _id: taskId,
+                isPending: true,
+                updatedAt: new Date().toISOString(),
+                createdAt: taskPayload.createdAt || new Date().toISOString(),
+                // Ensure subject display works in offline mode
+                subjectId: typeof taskPayload.subjectId === 'string' 
+                    ? (subjects.find(s => s._id === taskPayload.subjectId) || { name: 'General' })
+                    : (taskPayload.subjectId || { name: 'General' })
+            };
+
+            setPendingTasks(prev => {
+                const idx = prev.findIndex(t => t._id === taskId);
+                if (idx > -1) {
+                    const next = [...prev];
+                    next[idx] = queuedTask;
+                    return next;
+                }
+                return [...prev, queuedTask];
+            });
+            
+            showToast('Offline: Changes queued', 'info');
+            if (isModalOpen) closeModal();
+            return;
+        }
+
+        saveMutation.mutate(taskPayload);
+    };
+
     const getTasksByStatus = (statusId) => {
         let filtered = tasks.filter(t => t.status === statusId);
         
@@ -330,10 +449,10 @@ export default function AssignmentsPage() {
             dueDate: fd.get('dueDate'),
             priority: fd.get('priority'),
             status: fd.get('status'),
-            // Only send subjectId if it's a real value — empty string breaks Mongoose ObjectId cast
             ...(rawSubjectId ? { subjectId: rawSubjectId } : {}),
         };
-        saveMutation.mutate(payload);
+
+        handleSaveTask(payload);
     };
 
     return (
@@ -429,7 +548,7 @@ export default function AssignmentsPage() {
                                             task={task} 
                                             onEdit={openModal}
                                             onDelete={(id) => deleteMutation.mutate(id)}
-                                            onStatusChange={(newStatus) => saveMutation.mutate({...task, status: newStatus})}
+                                            onStatusChange={(newStatus) => handleSaveTask({...task, status: newStatus})}
                                         />
                                     ))}
                                     

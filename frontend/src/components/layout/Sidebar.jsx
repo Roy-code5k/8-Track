@@ -1,3 +1,4 @@
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -22,6 +23,17 @@ export default function Sidebar() {
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
     const navigate = useNavigate();
+    const [isOnline, setIsOnline] = import.meta.env.SSR ? [true, () => {}] : React.useState(navigator.onLine);
+
+    React.useEffect(() => {
+        const handleStatus = () => setIsOnline(navigator.onLine);
+        window.addEventListener('online', handleStatus);
+        window.addEventListener('offline', handleStatus);
+        return () => {
+            window.removeEventListener('online', handleStatus);
+            window.removeEventListener('offline', handleStatus);
+        };
+    }, []);
 
     const logoutMutation = useMutation({
         mutationFn: () => api.post('/auth/logout'),
@@ -93,9 +105,17 @@ export default function Sidebar() {
                 </button>
 
                 <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[var(--status-safe)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-safe)] shadow-[0_0_8px_var(--status-safe)]" />
-                        Synced
+                    <div 
+                        className={`flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+                            isOnline ? 'text-[var(--status-safe)]' : 'text-[var(--status-danger)] animate-pulse'
+                        }`}
+                    >
+                        <span 
+                            className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] ${
+                                isOnline ? 'bg-[var(--status-safe)]' : 'bg-[var(--status-danger)]'
+                            }`} 
+                        />
+                        {isOnline ? 'Synced' : 'Offline'}
                     </div>
                     <div className="flex gap-2">
                          <button 
