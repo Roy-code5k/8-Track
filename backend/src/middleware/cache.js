@@ -20,13 +20,13 @@ export const cacheMiddleware = (req, res, next) => {
     if (cachedResponse) {
         return res.json(cachedResponse);
     } else {
-        res.originalJson = res.json;
+        const originalJson = res.json.bind(res);
         res.json = (body) => {
             // Only cache if status is 2xx
             if (res.statusCode >= 200 && res.statusCode < 300) {
                 cache.set(key, body);
             }
-            res.originalJson(body);
+            return originalJson(body);
         };
         next();
     }
@@ -37,7 +37,7 @@ export const cacheMiddleware = (req, res, next) => {
  * Clears cache for the current user when data is modified
  */
 export const clearCacheMiddleware = (req, res, next) => {
-    const userId = req.user?.id;
+    const userId = req.user?._id || req.user?.id;
     
     if (userId) {
         // Find all keys for this user and delete them

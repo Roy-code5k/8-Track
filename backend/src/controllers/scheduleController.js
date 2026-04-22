@@ -58,14 +58,31 @@ const getSchedule = async (req, res, next) => {
         const userId = req.user._id;
         const weekOf = getActiveWeekOf();
 
-        const upserts = DAYS.map(day =>
-            Schedule.findOneAndUpdate(
+        const docs = [];
+        for (const day of DAYS) {
+            let doc = await Schedule.findOneAndUpdate(
                 { userId, day, weekOf },
                 { $setOnInsert: { userId, day, weekOf, isHoliday: false, slots: [] } },
-                { upsert: true, new: true }
-            )
-        );
-        const docs = await Promise.all(upserts);
+                { upsert: false, new: true }
+            );
+
+            if (!doc) {
+                try {
+                    doc = await Schedule.findOneAndUpdate(
+                        { userId, day, weekOf },
+                        { $setOnInsert: { userId, day, weekOf, isHoliday: false, slots: [] } },
+                        { upsert: true, new: true }
+                    );
+                } catch (err) {
+                    if (err.code === 11000) {
+                        doc = await Schedule.findOne({ userId, day, weekOf });
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+            if (doc) docs.push(doc);
+        }
         docs.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day));
 
         res.json({ schedule: docs });
@@ -86,11 +103,22 @@ const addSlot = async (req, res, next) => {
         if (!subjectName || !startTime || !endTime)
             return res.status(400).json({ message: 'subjectName, startTime and endTime are required' });
 
-        const doc = await Schedule.findOneAndUpdate(
-            { userId, day, weekOf },
-            { $push: { slots: { subjectName, startTime, endTime, room: room || '' } } },
-            { new: true, upsert: true }
-        );
+        const filter = { userId, day, weekOf };
+        const update = { $push: { slots: { subjectName, startTime, endTime, room: room || '' } } };
+
+        let doc = await Schedule.findOneAndUpdate(filter, update, { new: true });
+
+        if (!doc) {
+            try {
+                doc = await Schedule.findOneAndUpdate(filter, update, { new: true, upsert: true });
+            } catch (err) {
+                if (err.code === 11000) {
+                    doc = await Schedule.findOneAndUpdate(filter, update, { new: true });
+                } else {
+                    throw err;
+                }
+            }
+        }
         res.status(201).json({ day: doc });
     } catch (err) {
         next(err);
@@ -124,11 +152,22 @@ const toggleHoliday = async (req, res, next) => {
         const { isHoliday } = req.body;
         const weekOf = getActiveWeekOf();
 
-        const doc = await Schedule.findOneAndUpdate(
-            { userId, day, weekOf },
-            { isHoliday: !!isHoliday },
-            { new: true, upsert: true }
-        );
+        const filter = { userId, day, weekOf };
+        const update = { isHoliday: !!isHoliday };
+
+        let doc = await Schedule.findOneAndUpdate(filter, update, { new: true });
+
+        if (!doc) {
+            try {
+                doc = await Schedule.findOneAndUpdate(filter, update, { new: true, upsert: true });
+            } catch (err) {
+                if (err.code === 11000) {
+                    doc = await Schedule.findOneAndUpdate(filter, update, { new: true });
+                } else {
+                    throw err;
+                }
+            }
+        }
         res.json({ day: doc });
     } catch (err) {
         next(err);
