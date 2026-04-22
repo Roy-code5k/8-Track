@@ -16,6 +16,9 @@ import {
 } from 'date-fns';
 import api from '../lib/api';
 import { useState, useMemo } from 'react';
+import { useAuthStore } from '../store/authStore';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getDistinctDays(history) {
@@ -287,6 +290,7 @@ function SummaryCard({ title, stats, isCurrent }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ProgressPage() {
+    const user = useAuthStore((s) => s.user);
     const { data: subjects = [] } = useQuery({
         queryKey: ['subjects'],
         queryFn: () => api.get('/subjects').then(r => r.data.subjects || r.data),
@@ -382,6 +386,127 @@ export default function ProgressPage() {
     const currentMonthStats = useMemo(() => getMonthStats(new Date()), [attendanceHistory, assignments, exams]);
     const prevMonthStats = useMemo(() => getMonthStats(subDays(startOfMonth(new Date()), 1)), [attendanceHistory, assignments, exams]);
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        const now = new Date();
+        const dateString = format(now, 'dd MMMM yyyy');
+
+        // Header Background
+        doc.setFillColor(24, 24, 27); // Zinc 900
+        doc.rect(0, 0, 210, 45, 'F');
+        
+        // Logo / Title
+        doc.setTextColor(232, 168, 56); // Primary Gold
+        doc.setFontSize(28);
+        doc.setFont("helvetica", "bold");
+        doc.text("8-TRACK", 20, 25);
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.text("Progress Analytics Report", 20, 35);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(161, 161, 170); // Zinc 400
+        doc.text(`Generated on: ${dateString}`, 155, 25);
+
+        // Student Info Section
+        doc.setTextColor(24, 24, 27);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("STUDENT INFORMATION", 20, 60);
+        
+        doc.setDrawColor(228, 228, 231);
+        doc.line(20, 63, 190, 63);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.text(`Name: ${user?.name || 'N/A'}`, 20, 72);
+        doc.text(`Email: ${user?.email || 'N/A'}`, 20, 79);
+        doc.text(`Overall Attendance: ${currentMonthStats.attendancePct}%`, 130, 72);
+        doc.text(`Current Streak: ${currentStreak} days`, 130, 79);
+
+        // Summary Stats Table
+        doc.setFont("helvetica", "bold");
+        doc.text("KEY PERFORMANCE METRICS", 20, 95);
+        
+        const statsData = [
+            ["Metric", "Value", "Description"],
+            ["Current Streak", `${currentStreak} Days`, "Consecutive days with attendance"],
+            ["Max Streak Ever", `${maxStreakEver} Days`, "Highest streak achieved"],
+            ["Total Days Tracked", `${totalDays} Days`, "Days with recorded activity"],
+            ["Current Month Attendance", `${currentMonthStats.attendancePct}%`, `${format(now, 'MMMM')} attendance rate`],
+            ["Tasks Completed", `${currentMonthStats.tasks}`, "Assignments finished this month"],
+            ["Exams Taken", `${currentMonthStats.exams}`, "Assessments completed this month"]
+        ];
+
+        autoTable(doc, {
+            startY: 100,
+            head: [statsData[0]],
+            body: statsData.slice(1),
+            theme: 'striped',
+            headStyles: { 
+                fillColor: [24, 24, 27], 
+                textColor: [232, 168, 56],
+                fontSize: 10,
+                fontStyle: 'bold'
+            },
+            bodyStyles: { fontSize: 9 },
+            alternateRowStyles: { fillColor: [250, 250, 250] }
+        });
+
+        // Subject Breakdown Table
+        doc.setFont("helvetica", "bold");
+        doc.text("SUBJECT-WISE PERFORMANCE", 20, doc.lastAutoTable?.finalY + 15 || 180);
+        
+        const subjectData = subjects.map(s => {
+            const subHistory = attendanceHistory.filter(h => h.subjectId === s._id);
+            const subStreak = calculateStreak(subHistory);
+            return [
+                s.name, 
+                `${s.percentage || 0}%`, 
+                `${subStreak} Days`,
+                s.status?.toUpperCase() || 'N/A'
+            ];
+        });
+
+        autoTable(doc, {
+            startY: doc.lastAutoTable?.finalY + 20 || 190,
+            head: [['Subject Name', 'Attendance %', 'Current Streak', 'Status']],
+            body: subjectData,
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [58, 191, 191], // Secondary accent color
+                textColor: [255, 255, 255],
+                fontSize: 10
+            },
+            bodyStyles: { fontSize: 9 },
+            columnStyles: {
+                3: { fontStyle: 'bold' } // Status column bold
+            }
+        });
+
+        // Add a nice note at the bottom
+        const finalY = doc.lastAutoTable?.finalY + 30 || 250;
+        if (finalY < 270) {
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(113, 113, 122);
+            doc.text("Keep up the consistency! Success is built one day at a time.", 105, finalY, { align: "center" });
+        }
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(161, 161, 170);
+            doc.text(`8-Track Progress Report | Page ${i} of ${pageCount}`, 105, 285, { align: "center" });
+        }
+
+        doc.save(`8Track_Report_${format(now, 'yyyy_MM_dd')}.pdf`);
+    };
+
     return (
         <div className="space-y-10 pb-20">
             {/* Header Area */}
@@ -392,7 +517,10 @@ export default function ProgressPage() {
                     </h1>
                     <p className="text-sm font-medium mt-2 text-[var(--secondary-accent)]">Your consistency, visualized.</p>
                 </div>
-                <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black tracking-widest uppercase text-white hover:bg-white/10 transition-all">
+                <button 
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black tracking-widest uppercase text-white hover:bg-white/10 transition-all"
+                >
                     <Download className="w-4 h-4 text-[var(--primary-accent)]" />
                     Export Analytics Report
                 </button>

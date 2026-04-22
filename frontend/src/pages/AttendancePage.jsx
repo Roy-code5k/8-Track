@@ -9,6 +9,9 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import api from '../lib/api';
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../components/common/Toast';
+import { useAuthStore } from '../store/authStore';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
@@ -19,6 +22,7 @@ const STATUS_STYLE = {
 
 // ─── Attendance Page ──────────────────────────────────────────────────────────
 export default function AttendancePage() {
+    const user = useAuthStore((s) => s.user);
     const { id: subjectId } = useParams();
     const queryClient = useQueryClient();
     const { showToast } = useToast();
@@ -142,6 +146,66 @@ export default function AttendancePage() {
         ? ((subject.attendedClasses) / (subject.totalClasses + 1)) * 100 
         : 0;
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        const now = new Date();
+        const dateString = format(now, 'dd MMMM yyyy');
+
+        // Header Background
+        doc.setFillColor(24, 24, 27);
+        doc.rect(0, 0, 210, 45, 'F');
+        
+        doc.setTextColor(232, 168, 56);
+        doc.setFontSize(28);
+        doc.setFont("helvetica", "bold");
+        doc.text("8-TRACK", 20, 25);
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.text(`Attendance Report: ${subject.name}`, 20, 35);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(161, 161, 170);
+        doc.text(`Generated on: ${dateString}`, 155, 25);
+
+        // Subject Info
+        doc.setTextColor(24, 24, 27);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("SUBJECT DETAILS", 20, 60);
+        doc.line(20, 63, 190, 63);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.text(`Student: ${user?.name || 'N/A'}`, 20, 72);
+        doc.text(`Subject: ${subject.name} (${subject.code || 'N/A'})`, 20, 79);
+        doc.text(`Professor: ${subject.professor || 'N/A'}`, 20, 86);
+        doc.text(`Attendance: ${Math.round(subject.percentage || 0)}%`, 130, 72);
+        doc.text(`Status: ${subject.status || 'N/A'}`, 130, 79);
+
+        // Attendance Log Table
+        doc.setFont("helvetica", "bold");
+        doc.text("FULL ATTENDANCE LOG", 20, 105);
+        
+        const tableData = history.map(rec => [
+            format(new Date(rec.date), 'dd/MM/yyyy'),
+            rec.status.toUpperCase(),
+            rec.topic || 'Regular Session',
+            format(new Date(rec.date), 'hh:mm a')
+        ]);
+
+        autoTable(doc, {
+            startY: 110,
+            head: [['Date', 'Status', 'Topic', 'Time']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [24, 24, 27], textColor: [232, 168, 56] },
+            bodyStyles: { fontSize: 9 }
+        });
+
+        doc.save(`Attendance_${subject.name.replace(/\s+/g, '_')}_${format(now, 'yyyy_MM_dd')}.pdf`);
+    };
+
     return (
         <div className="space-y-8 pb-12">
             {/* ── Header Area ── */}
@@ -171,7 +235,10 @@ export default function AttendancePage() {
                             </span>
                         </div>
                     </div>
-                    <button className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--active-highlight)] border border-[rgba(255,255,255,0.05)] text-white text-sm font-bold transition-all hover:bg-[rgba(255,255,255,0.08)]">
+                    <button 
+                        onClick={handleExportPDF}
+                        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--active-highlight)] border border-[rgba(255,255,255,0.05)] text-white text-sm font-bold transition-all hover:bg-[rgba(255,255,255,0.08)]"
+                    >
                         <Download className="w-4 h-4" />
                         Export Report
                     </button>
