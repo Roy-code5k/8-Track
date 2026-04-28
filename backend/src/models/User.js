@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema(
         semester: { type: String, trim: true },
         dob: { type: Date },
         phone: { type: String, trim: true },
+        avatarStyle: { type: String, default: 'avataaars' },
+        avatarSeed: { type: String },
         pushSubscription: { type: Object },
         refreshToken: { type: String },
         googleTokens: {

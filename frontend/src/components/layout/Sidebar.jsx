@@ -58,7 +58,7 @@ export default function Sidebar() {
                 <div className="flex items-center gap-3 px-2 mb-8">
                     <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2 border-[var(--active-highlight)]">
                         <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`} 
+                            src={`https://api.dicebear.com/7.x/${user?.avatarStyle || 'avataaars'}/svg?seed=${user?.avatarSeed || user?.name || 'User'}`} 
                             alt="Avatar" 
                             className="w-full h-full object-cover"
                         />

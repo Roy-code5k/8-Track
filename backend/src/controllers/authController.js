@@ -38,7 +38,11 @@ const register = async (req, res, next) => {
             return res.status(409).json({ message: 'Email already registered' });
         }
 
-        const user = await User.create({ name, email, password, institution, branch, semester });
+        const user = await User.create({ 
+            name, email, password, institution, branch, semester,
+            avatarSeed: name, // Default seed is user name
+            avatarStyle: 'avataaars'
+        });
 
         const accessToken = generateAccessToken(user.id);
         const newRefreshToken = generateRefreshToken(user.id);
@@ -59,6 +63,8 @@ const register = async (req, res, next) => {
                 semester: user.semester,
                 dob: user.dob,
                 phone: user.phone,
+                avatarStyle: user.avatarStyle,
+                avatarSeed: user.avatarSeed,
             },
         });
     } catch (err) {
@@ -104,6 +110,8 @@ const login = async (req, res, next) => {
                 semester: user.semester,
                 dob: user.dob,
                 phone: user.phone,
+                avatarStyle: user.avatarStyle,
+                avatarSeed: user.avatarSeed,
             },
         });
     } catch (err) {
@@ -168,11 +176,11 @@ const getProfile = async (req, res, next) => {
 
 // Update Profile
 const updateProfile = async (req, res, next) => {
-    const { name, institution, dob, phone, semester } = req.body;
+    const { name, institution, dob, phone, semester, avatarStyle, avatarSeed } = req.body;
     try {
         const user = await User.findByIdAndUpdate(
             req.user.id,
-            { name, institution, dob, phone, semester },
+            { name, institution, dob, phone, semester, avatarStyle, avatarSeed },
             { new: true, runValidators: true }
         ).select('-password -refreshToken');
         res.json({ user });
@@ -253,7 +261,11 @@ const verifyOtpAndRegister = async (req, res, next) => {
             return res.status(409).json({ message: 'Email already registered' });
         }
 
-        const user = await User.create({ name, email, password, institution, branch, semester });
+        const user = await User.create({ 
+            name, email, password, institution, branch, semester,
+            avatarSeed: name,
+            avatarStyle: 'avataaars'
+        });
 
         const accessToken = generateAccessToken(user.id);
         const newRefreshToken = generateRefreshToken(user.id);
@@ -277,6 +289,8 @@ const verifyOtpAndRegister = async (req, res, next) => {
                 semester: user.semester,
                 dob: user.dob,
                 phone: user.phone,
+                avatarStyle: user.avatarStyle,
+                avatarSeed: user.avatarSeed,
             },
         });
     } catch (err) {
@@ -347,7 +361,11 @@ const googleCallback = async (req, res, next) => {
             }
         } else {
             // Create a new Google-only account (no password)
-            user = await User.create({ name, email, googleId });
+            user = await User.create({ 
+                name, email, googleId, 
+                avatarSeed: name,
+                avatarStyle: 'avataaars'
+            });
         }
 
         const accessToken = generateAccessToken(user.id);
@@ -368,6 +386,8 @@ const googleCallback = async (req, res, next) => {
             semester: user.semester,
             dob: user.dob,
             phone: user.phone,
+            avatarStyle: user.avatarStyle,
+            avatarSeed: user.avatarSeed,
         }));
 
         return res.redirect(

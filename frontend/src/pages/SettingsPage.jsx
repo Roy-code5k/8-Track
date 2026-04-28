@@ -7,7 +7,7 @@ import {
     AlertTriangle, XCircle, CheckCircle, 
     Flame, Calendar, MoreHorizontal,
     Search, Filter, CheckCheck, FileText, Scale,
-    Edit2, Save, X
+    Edit2, Save, X, RefreshCw
 } from 'lucide-react';
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import api from '../lib/api';
@@ -26,6 +26,16 @@ const TYPE_ICONS = {
 
 import { useAuthStore } from '../store/authStore';
 
+const AVATAR_STYLES = [
+    { id: 'avataaars', name: 'People' },
+    { id: 'bottts', name: 'Robots' },
+    { id: 'pixel-art', name: 'Pixel Art' },
+    { id: 'lorelei', name: 'Faces' },
+    { id: 'adventurer', name: 'Characters' },
+    { id: 'miniavs', name: 'Minimal' },
+    { id: 'big-ears', name: 'Fun' }
+];
+
 export default function SettingsPage() {
     const user = useAuthStore((s) => s.user);
     const updateUser = useAuthStore((s) => s.updateUser);
@@ -43,8 +53,15 @@ export default function SettingsPage() {
         institution: user?.institution || '',
         dob: user?.dob ? format(new Date(user.dob), 'yyyy-MM-dd') : '',
         phone: user?.phone || '',
-        semester: user?.semester || ''
+        semester: user?.semester || '',
+        avatarStyle: user?.avatarStyle || 'avataaars',
+        avatarSeed: user?.avatarSeed || user?.name || 'User'
     });
+
+    const handleRandomizeAvatar = () => {
+        const randomSeed = Math.random().toString(36).substring(7);
+        setFormData(prev => ({ ...prev, avatarSeed: randomSeed }));
+    };
 
     const updateProfileMutation = useMutation({
         mutationFn: (data) => api.put('/auth/profile', data),
@@ -346,10 +363,20 @@ export default function SettingsPage() {
                             <div className="flex flex-col items-center justify-center text-center space-y-6">
                                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[var(--primary-accent)] shadow-2xl relative group">
                                      <img 
-                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`} 
+                                        src={`https://api.dicebear.com/7.x/${isEditing ? formData.avatarStyle : (user?.avatarStyle || 'avataaars')}/svg?seed=${isEditing ? formData.avatarSeed : (user?.avatarSeed || user?.name || 'User')}`} 
                                         alt="Avatar" 
                                         className="w-full h-full object-cover"
                                     />
+                                    {isEditing && (
+                                         <button 
+                                             type="button"
+                                             onClick={handleRandomizeAvatar}
+                                             className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                             title="Randomize Avatar"
+                                         >
+                                             <RefreshCw className="w-8 h-8 text-white animate-in spin-in-180 duration-500" />
+                                         </button>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <h3 className="text-2xl font-black text-white">{user?.name}</h3>
@@ -397,7 +424,9 @@ export default function SettingsPage() {
                                                     institution: user?.institution || '',
                                                     dob: user?.dob ? format(new Date(user.dob), 'yyyy-MM-dd') : '',
                                                     phone: user?.phone || '',
-                                                    semester: user?.semester || ''
+                                                    semester: user?.semester || '',
+                                                    avatarStyle: user?.avatarStyle || 'avataaars',
+                                                    avatarSeed: user?.avatarSeed || user?.name || 'User'
                                                 });
                                                 setIsEditing(true);
                                             }}
@@ -409,6 +438,42 @@ export default function SettingsPage() {
                                     </div>
                                 ) : (
                                     <form onSubmit={handleProfileSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        {/* Avatar Customizer */}
+                                        <div className="p-6 rounded-[32px] bg-[rgba(255,255,255,0.02)] border border-white/5 space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">Customize Avatar</h4>
+                                                    <p className="text-[11px] font-medium text-[var(--text-muted)]">Choose a style and shuffle for a unique look</p>
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={handleRandomizeAvatar}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--active-highlight)] text-white text-[11px] font-bold hover:bg-[var(--primary-accent)] hover:text-[var(--sidebar-bg)] transition-all group"
+                                                >
+                                                    <RefreshCw className="w-3.5 h-3.5 group-active:rotate-180 transition-transform duration-500" />
+                                                    Shuffle
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                                                {AVATAR_STYLES.map(style => (
+                                                    <button 
+                                                        key={style.id}
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({ ...prev, avatarStyle: style.id }))}
+                                                        className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105 ${formData.avatarStyle === style.id ? 'border-[var(--primary-accent)] bg-[var(--active-highlight)] shadow-lg shadow-[var(--primary-accent)]/10' : 'border-white/5 bg-black/20 opacity-60 hover:opacity-100'}`}
+                                                        title={style.name}
+                                                    >
+                                                        <img 
+                                                            src={`https://api.dicebear.com/7.x/${style.id}/svg?seed=${formData.avatarSeed}`} 
+                                                            alt={style.name}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <div className="space-y-4">
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] ml-1">Full Name</label>
