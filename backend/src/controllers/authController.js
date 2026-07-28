@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { google  } from 'googleapis';
 import User from '../models/User.js';
-import Otp from '../models/OTP.js';
+import Otp from '../models/Otp.js';
 import { sendOtpEmail  } from '../utils/emailService.js';
 
 const generateAccessToken = (id) =>
