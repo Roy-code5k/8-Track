@@ -190,7 +190,15 @@ const logout = async (req, res, next) => {
 
 // Get Profile
 const getProfile = async (req, res, next) => {
-    res.json({ user: req.user });
+    try {
+        const user = await User.findById(req.user.id).select('-password -refreshToken');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json({ user });
+    } catch (err) {
+        return next(err);
+    }
 };
 
 // Update Profile
