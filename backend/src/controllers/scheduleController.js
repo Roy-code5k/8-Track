@@ -60,29 +60,37 @@ const getSchedule = async (req, res, next) => {
         const userId = new mongoose.Types.ObjectId(req.user._id);
         const weekOf = getActiveWeekOf();
 
-        const docs = [];
-        for (const day of DAYS) {
-            let doc = await Schedule.findOne({ userId, day, weekOf });
+        // Single query to fetch all existing schedule documents for this week
+        let docs = await Schedule.find({ userId, weekOf });
 
-            if (!doc) {
-                try {
-                    doc = await Schedule.create({
-                        userId,
-                        day,
-                        weekOf,
-                        isHoliday: false,
-                        slots: []
-                    });
-                } catch (err) {
-                    if (err.code === 11000) {
-                        doc = await Schedule.findOne({ userId, day, weekOf });
-                    } else {
-                        throw err;
-                    }
+        // Identify any missing days
+        const existingDaysSet = new Set(docs.map(d => d.day));
+        const missingDays = DAYS.filter(day => !existingDaysSet.has(day));
+
+        // Create missing days in bulk if needed
+        if (missingDays.length > 0) {
+            const newDocs = missingDays.map(day => ({
+                userId,
+                day,
+                weekOf,
+                isHoliday: false,
+                slots: []
+            }));
+
+            try {
+                await Schedule.insertMany(newDocs, { ordered: false });
+            } catch (err) {
+                // Ignore duplicate key errors from concurrent requests (err code 11000)
+                if (err.code !== 11000 && !err.writeErrors) {
+                    throw err;
                 }
             }
-            if (doc) docs.push(doc);
+
+            // Retrieve all 7 documents after insertion
+            docs = await Schedule.find({ userId, weekOf });
         }
+
+        // Sort documents Monday -> Sunday
         docs.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day));
 
         res.json({ schedule: docs });
